@@ -275,7 +275,7 @@ export default function CalculatorScreen() {
         {/* Save Button */}
         <TouchableOpacity activeOpacity={0.85} style={styles.saveButtonWrapper} onPress={openSaveModal}>
           <LinearGradient
-            colors={['#3B82F6', '#2563EB']}
+            colors={['#2D3748', '#1F2937']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.saveButton}
@@ -320,7 +320,7 @@ export default function CalculatorScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={styles.confirmButton} onPress={() => setShowFrequencyPicker(false)}>
                 <LinearGradient
-                  colors={['#3B82F6', '#2563EB']}
+                  colors={['#2D3748', '#1F2937']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.confirmButtonGradient}
@@ -374,7 +374,7 @@ export default function CalculatorScreen() {
                 disabled={isSaving}
               >
                 <LinearGradient
-                  colors={['#3B82F6', '#2563EB']}
+                  colors={['#2D3748', '#1F2937']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.confirmButtonGradient}

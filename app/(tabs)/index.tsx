@@ -13,59 +13,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { useCalculations } from '@/hooks/use-calculations';
 
 const GREEN_ACCENT = '#10B981';
-const PREMIUM_GOLD = '#F59E0B';
 
-const FREQUENCY_OPTIONS = ['Weekly', 'Monthly', 'Quarterly', 'Yearly'] as const;
+const FREQUENCY_OPTIONS = ['Annually', 'Semi-annually', 'Quarterly', 'Monthly'] as const;
 type FrequencyType = (typeof FREQUENCY_OPTIONS)[number];
 
 const FREQUENCY_PERIODS: Record<FrequencyType, number> = {
-  Weekly: 52,
-  Monthly: 12,
+  Annually: 1,
+  'Semi-annually': 2,
   Quarterly: 4,
-  Yearly: 1,
-};
-
-const sanitizeNumber = (value: string, allowDecimal = false) => {
-  const cleaned = value.replace(allowDecimal ? /[^0-9.]/g : /[^0-9]/g, '');
-  if (!allowDecimal) {
-    return cleaned;
-  }
-
-  const parts = cleaned.split('.');
-  const integerPart = parts.shift() ?? '';
-  const decimalPart = parts.join('').replace(/\./g, '');
-  if (!integerPart && !decimalPart) {
-    return '';
-  }
-
-  const prefix = integerPart || '0';
-  return decimalPart ? `${prefix}.${decimalPart}` : prefix;
-};
-
-const formatNumberWithSeparators = (value: string) => {
-  if (!value) {
-    return '';
-  }
-
-  const [integerPart, decimalPart] = value.split('.');
-  const integerValue = integerPart ? Number(integerPart) : 0;
-  const formattedInteger = integerValue.toLocaleString('en-US');
-
-  if (decimalPart !== undefined && decimalPart.length > 0) {
-    return `${formattedInteger}.${decimalPart}`;
-  }
-
-  if (value.endsWith('.')) {
-    return `${formattedInteger}.`;
-  }
-
-  return formattedInteger;
+  Monthly: 12,
 };
 
 const formatCurrency = (value: number) =>
@@ -77,16 +38,12 @@ const formatCurrency = (value: number) =>
 
 export default function CalculatorScreen() {
   const [initialDeposit, setInitialDeposit] = useState('10000');
-  const [contributionAmount, setContributionAmount] = useState('500');
-  const [frequency, setFrequency] = useState<FrequencyType>('Monthly');
+  const [frequency, setFrequency] = useState<FrequencyType>('Annually');
   const [yearsOfGrowth, setYearsOfGrowth] = useState('10');
-  const [estimatedRate, setEstimatedRate] = useState('8');
+  const [estimatedRate, setEstimatedRate] = useState('7');
   const [totalBalance, setTotalBalance] = useState(0);
-  const [totalContributions, setTotalContributions] = useState(0);
   const [interestEarned, setInterestEarned] = useState(0);
-  const [investedCapital, setInvestedCapital] = useState(0);
 
-  const [showFrequencyModal, setShowFrequencyModal] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveTitle, setSaveTitle] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -95,51 +52,38 @@ export default function CalculatorScreen() {
 
   const calculateInvestment = useCallback(() => {
     const principal = Number(initialDeposit) || 0;
-    const periodicContribution = Number(contributionAmount) || 0;
     const annualRate = (Number(estimatedRate) || 0) / 100;
     const years = Number(yearsOfGrowth) || 0;
-    const periodsPerYear = FREQUENCY_PERIODS[frequency];
-    const totalPeriods = Math.max(years * periodsPerYear, 0);
-    const ratePerPeriod = annualRate / periodsPerYear;
+    const n = FREQUENCY_PERIODS[frequency];
 
-    const growthFactor = Math.pow(1 + ratePerPeriod, totalPeriods);
-    const futureValuePrincipal = principal * growthFactor;
-    const futureValueContributions =
-      ratePerPeriod === 0
-        ? periodicContribution * totalPeriods
-        : periodicContribution * ((growthFactor - 1) / ratePerPeriod);
-
-    const totalFutureValue = futureValuePrincipal + futureValueContributions;
-    const contributionsTotal = periodicContribution * totalPeriods;
-    const investedTotal = principal + contributionsTotal;
-    const totalInterest = totalFutureValue - investedTotal;
+    // A = P(1 + r/n)^(nt)
+    const totalFutureValue = principal * Math.pow(1 + annualRate / n, n * years);
+    const totalInterest = totalFutureValue - principal;
 
     setTotalBalance(totalFutureValue);
-    setTotalContributions(contributionsTotal);
     setInterestEarned(totalInterest);
-    setInvestedCapital(investedTotal);
-  }, [initialDeposit, contributionAmount, estimatedRate, yearsOfGrowth, frequency]);
+  }, [initialDeposit, estimatedRate, yearsOfGrowth, frequency]);
 
   useEffect(() => {
     calculateInvestment();
   }, [calculateInvestment]);
 
-  const contributionsRatio = useMemo(() => {
-    if (totalBalance <= 0) {
-      return 0;
-    }
-    const ratio = investedCapital / totalBalance;
-    return Math.min(Math.max(ratio, 0), 1);
-  }, [investedCapital, totalBalance]);
+  const growthPercentage = useMemo(() => {
+    const principal = Number(initialDeposit) || 1;
+    return ((interestEarned / principal) * 100).toFixed(1);
+  }, [interestEarned, initialDeposit]);
 
-  const interestRatio = useMemo(() => 1 - contributionsRatio, [contributionsRatio]);
+  const principalRatio = useMemo(() => {
+    if (totalBalance <= 0) return 0.5;
+    const principal = Number(initialDeposit) || 0;
+    return Math.min(Math.max(principal / totalBalance, 0.1), 0.9);
+  }, [initialDeposit, totalBalance]);
 
   const handleFrequencySelect = (selected: FrequencyType) => {
     if (Platform.OS === 'ios') {
       Haptics.selectionAsync();
     }
     setFrequency(selected);
-    setShowFrequencyModal(false);
   };
 
   const handleSave = async () => {
@@ -155,8 +99,8 @@ export default function CalculatorScreen() {
         finalBalance: totalBalance,
         initialDeposit: Number(initialDeposit) || 0,
         interestEarned,
-        contributions: totalContributions,
-        contributionAmount: Number(contributionAmount) || 0,
+        contributions: 0,
+        contributionAmount: 0,
         timePeriod: Number(yearsOfGrowth) || 0,
         rateOfReturn: Number(estimatedRate) || 0,
         frequency,
@@ -182,75 +126,160 @@ export default function CalculatorScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.wrapper}>
+      {/* Top gradient overlay */}
+      <LinearGradient
+        colors={['rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.05)', 'transparent']}
+        locations={[0, 0.5, 1]}
+        style={styles.topGradient}
+        pointerEvents="none"
+      />
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Header */}
         <View style={styles.headerGroup}>
           <View style={styles.headerRow}>
-            <ThemedText style={styles.headerTitle}>Calculator</ThemedText>
-            <View style={styles.premiumBadge}>
-              <Ionicons name="diamond" size={12} color={PREMIUM_GOLD} />
-              <ThemedText style={styles.premiumText}>PRO</ThemedText>
-            </View>
+            <Ionicons name="trending-up" size={28} color={GREEN_ACCENT} />
+            <ThemedText style={styles.headerTitle}>Compound</ThemedText>
           </View>
-          <ThemedText style={styles.headerSubtitle}>Compound Interest</ThemedText>
+          <ThemedText style={styles.headerSubtitle}>Watch your money grow over time</ThemedText>
         </View>
 
-        <View style={styles.resultCard}>
-          <View style={styles.resultHeader}>
-            <ThemedText style={styles.resultLabel}>Total Balance</ThemedText>
-            <View style={styles.growthBadge}>
-              <Ionicons name="trending-up" size={12} color="#FFFFFF" />
-              <ThemedText style={styles.growthText}>
-                +{((interestEarned / Math.max(investedCapital, 1)) * 100).toFixed(1)}%
-              </ThemedText>
-            </View>
-          </View>
+        {/* Result Card */}
+        <LinearGradient
+          colors={['#065F46', '#064E3B', '#022C22']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.resultCard}
+        >
+          <ThemedText style={styles.resultLabel}>Future Value</ThemedText>
           <ThemedText style={styles.totalBalance}>{formatCurrency(totalBalance)}</ThemedText>
 
-          <View style={styles.progressSection}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressSegmentPrincipal, { flex: contributionsRatio || 0.001 }]} />
-              <View style={[styles.progressSegmentInterest, { flex: interestRatio || 0.001 }]} />
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statLabel}>Total Interest</ThemedText>
+              <ThemedText style={styles.statValueGreen}>{formatCurrency(interestEarned)}</ThemedText>
             </View>
-            <View style={styles.progressLegend}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, styles.legendPrincipal]} />
-                <ThemedText style={styles.legendLabel}>Principal + Contributions</ThemedText>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, styles.legendInterest]} />
-                <ThemedText style={styles.legendLabel}>Interest</ThemedText>
-              </View>
+            <View style={styles.statItemRight}>
+              <ThemedText style={styles.statLabel}>Growth</ThemedText>
+              <ThemedText style={styles.statValueGreen}>+{growthPercentage}%</ThemedText>
             </View>
           </View>
 
-          <View style={styles.divider} />
+          <View style={styles.progressBar}>
+            <View style={[styles.progressPrincipal, { flex: principalRatio }]} />
+            <View style={[styles.progressInterest, { flex: 1 - principalRatio }]} />
+          </View>
 
-          <View style={styles.summaryGrid}>
-            <View style={styles.summaryItem}>
-              <ThemedText style={styles.summaryLabel}>Initial</ThemedText>
-              <ThemedText style={styles.summaryValue}>
-                {formatCurrency(Number(initialDeposit) || 0)}
-              </ThemedText>
+          <View style={styles.progressLabels}>
+            <ThemedText style={styles.progressLabel}>Principal</ThemedText>
+            <ThemedText style={styles.progressLabel}>+{growthPercentage}% growth</ThemedText>
+          </View>
+        </LinearGradient>
+
+        {/* Input Fields */}
+        <View style={styles.inputCard}>
+          <View style={styles.inputHeader}>
+            <View style={styles.inputIconBadge}>
+              <Ionicons name="cash-outline" size={16} color={GREEN_ACCENT} />
             </View>
-            <View style={[styles.summaryItem, styles.summaryItemMiddle]}>
-              <ThemedText style={styles.summaryLabel}>Contributions</ThemedText>
-              <ThemedText style={styles.summaryValue}>{formatCurrency(totalContributions)}</ThemedText>
+            <ThemedText style={styles.inputLabel}>Initial Investment</ThemedText>
+          </View>
+          <TextInput
+            style={styles.input}
+            value={initialDeposit}
+            onChangeText={setInitialDeposit}
+            keyboardType="numeric"
+            placeholder="10000"
+            placeholderTextColor="#4B5563"
+            selectionColor={GREEN_ACCENT}
+          />
+        </View>
+
+        <View style={styles.inputCard}>
+          <View style={styles.inputHeader}>
+            <View style={styles.inputIconBadge}>
+              <Ionicons name="analytics-outline" size={16} color={GREEN_ACCENT} />
             </View>
-            <View style={styles.summaryItem}>
-              <ThemedText style={styles.summaryLabel}>Interest</ThemedText>
-              <ThemedText style={[styles.summaryValue, styles.interestValue]}>
-                {formatCurrency(interestEarned)}
-              </ThemedText>
-            </View>
+            <ThemedText style={styles.inputLabel}>Annual Interest Rate</ThemedText>
+          </View>
+          <View style={styles.inputWithSuffix}>
+            <TextInput
+              style={styles.inputFlex}
+              value={estimatedRate}
+              onChangeText={setEstimatedRate}
+              keyboardType="numeric"
+              placeholder="7"
+              placeholderTextColor="#4B5563"
+              selectionColor={GREEN_ACCENT}
+            />
+            <ThemedText style={styles.inputSuffix}>%</ThemedText>
           </View>
         </View>
 
+        <View style={styles.inputCard}>
+          <View style={styles.inputHeader}>
+            <View style={styles.inputIconBadge}>
+              <Ionicons name="calendar-outline" size={16} color={GREEN_ACCENT} />
+            </View>
+            <ThemedText style={styles.inputLabel}>Time Period</ThemedText>
+          </View>
+          <View style={styles.inputWithSuffix}>
+            <TextInput
+              style={styles.inputFlex}
+              value={yearsOfGrowth}
+              onChangeText={setYearsOfGrowth}
+              keyboardType="numeric"
+              placeholder="10"
+              placeholderTextColor="#4B5563"
+              selectionColor={GREEN_ACCENT}
+            />
+            <ThemedText style={styles.inputSuffix}>years</ThemedText>
+          </View>
+        </View>
+
+        <View style={styles.inputCard}>
+          <View style={styles.inputHeader}>
+            <View style={styles.inputIconBadge}>
+              <Ionicons name="sync-outline" size={16} color={GREEN_ACCENT} />
+            </View>
+            <ThemedText style={styles.inputLabel}>Compound Frequency</ThemedText>
+          </View>
+          <View style={styles.frequencyButtons}>
+            {FREQUENCY_OPTIONS.map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[styles.frequencyButton, frequency === option && styles.frequencyButtonActive]}
+                onPress={() => handleFrequencySelect(option)}
+                activeOpacity={0.7}
+              >
+                <ThemedText
+                  style={[styles.frequencyButtonText, frequency === option && styles.frequencyButtonTextActive]}
+                >
+                  {option}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Formula Section */}
+        <View style={styles.formulaCard}>
+          <ThemedText style={styles.formulaTitle}>
+            Compound interest is calculated using the formula:{' '}
+            <ThemedText style={styles.formulaHighlight}>A = P(1 + r/n)^(nt)</ThemedText>
+          </ThemedText>
+          <ThemedText style={styles.formulaDescription}>
+            Where P is principal, r is annual rate, n is compound frequency, and t is time in years.
+          </ThemedText>
+        </View>
+
+        {/* Save Button */}
         <TouchableOpacity activeOpacity={0.85} style={styles.saveButtonWrapper} onPress={openSaveModal}>
           <LinearGradient
             colors={['#3B82F6', '#2563EB']}
@@ -262,153 +291,7 @@ export default function CalculatorScreen() {
             <ThemedText style={styles.saveButtonText}>Save This Calculation</ThemedText>
           </LinearGradient>
         </TouchableOpacity>
-
-        <ThemedText style={styles.sectionTitle}>Investment Details</ThemedText>
-
-        <View style={styles.inputBlock}>
-          <ThemedText style={styles.inputLabel}>Initial Deposit</ThemedText>
-          <View style={styles.inputRow}>
-            <View style={styles.iconBadge}>
-              <Ionicons name="card-outline" size={18} color={GREEN_ACCENT} />
-            </View>
-            <ThemedText style={styles.currencyPrefix}>$</ThemedText>
-            <TextInput
-              style={styles.input}
-              value={formatNumberWithSeparators(initialDeposit)}
-              onChangeText={(text) => setInitialDeposit(sanitizeNumber(text, true))}
-              keyboardType="decimal-pad"
-              placeholder="10,000"
-              placeholderTextColor="#4B5563"
-              selectionColor={GREEN_ACCENT}
-              maxLength={15}
-            />
-          </View>
-        </View>
-
-        <View style={styles.inputBlock}>
-          <ThemedText style={styles.inputLabel}>Contribution Amount</ThemedText>
-          <View style={styles.inputRow}>
-            <View style={styles.iconBadge}>
-              <Ionicons name="wallet-outline" size={18} color={GREEN_ACCENT} />
-            </View>
-            <ThemedText style={styles.currencyPrefix}>$</ThemedText>
-            <TextInput
-              style={styles.input}
-              value={formatNumberWithSeparators(contributionAmount)}
-              onChangeText={(text) => setContributionAmount(sanitizeNumber(text, true))}
-              keyboardType="decimal-pad"
-              placeholder="500"
-              placeholderTextColor="#4B5563"
-              selectionColor={GREEN_ACCENT}
-              maxLength={12}
-            />
-          </View>
-        </View>
-
-        <View style={styles.inputBlock}>
-          <ThemedText style={styles.inputLabel}>Contribution Frequency</ThemedText>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.inputRow}
-            onPress={() => setShowFrequencyModal(true)}
-          >
-            <View style={styles.iconBadge}>
-              <Ionicons name="repeat-outline" size={18} color={GREEN_ACCENT} />
-            </View>
-            <ThemedText style={styles.selectorValue}>{frequency}</ThemedText>
-            <View style={styles.chevronBadge}>
-              <Ionicons name="chevron-down" size={14} color="#6B7280" />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.inputBlock}>
-          <ThemedText style={styles.inputLabel}>Investment Period</ThemedText>
-          <View style={styles.inputRow}>
-            <View style={styles.iconBadge}>
-              <Ionicons name="calendar-outline" size={18} color={GREEN_ACCENT} />
-            </View>
-            <TextInput
-              style={styles.input}
-              value={yearsOfGrowth}
-              onChangeText={(text) => setYearsOfGrowth(sanitizeNumber(text, true))}
-              keyboardType="decimal-pad"
-              placeholder="10"
-              placeholderTextColor="#4B5563"
-              selectionColor={GREEN_ACCENT}
-              maxLength={3}
-            />
-            <View style={styles.suffixBadge}>
-              <ThemedText style={styles.inputSuffix}>Years</ThemedText>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.inputBlock}>
-          <ThemedText style={styles.inputLabel}>Expected Annual Return</ThemedText>
-          <View style={styles.inputRow}>
-            <View style={styles.iconBadge}>
-              <Ionicons name="trending-up-outline" size={18} color={GREEN_ACCENT} />
-            </View>
-            <TextInput
-              style={styles.input}
-              value={estimatedRate}
-              onChangeText={(text) => setEstimatedRate(sanitizeNumber(text, true))}
-              keyboardType="decimal-pad"
-              placeholder="8"
-              placeholderTextColor="#4B5563"
-              selectionColor={GREEN_ACCENT}
-              maxLength={5}
-            />
-            <View style={styles.suffixBadge}>
-              <ThemedText style={styles.inputSuffix}>%</ThemedText>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.formulaCard}>
-          <View style={styles.formulaHeader}>
-            <Ionicons name="calculator-outline" size={14} color="#6B7280" />
-            <ThemedText style={styles.formulaCaption}>Compound Interest Formula</ThemedText>
-          </View>
-          <ThemedText style={styles.formulaText}>
-            A = P(1 + r/n)^(nt) + PMT × ((1 + r/n)^(nt) - 1) / (r/n)
-          </ThemedText>
-        </View>
       </ScrollView>
-
-      {/* Frequency Picker Modal */}
-      <Modal
-        visible={showFrequencyModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowFrequencyModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowFrequencyModal(false)}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <ThemedText style={styles.modalTitle}>Select Frequency</ThemedText>
-            {FREQUENCY_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[styles.modalOption, frequency === option && styles.modalOptionSelected]}
-                onPress={() => handleFrequencySelect(option)}
-              >
-                <ThemedText
-                  style={[styles.modalOptionText, frequency === option && styles.modalOptionTextSelected]}
-                >
-                  {option}
-                </ThemedText>
-                {frequency === option && <Ionicons name="checkmark-circle" size={22} color={GREEN_ACCENT} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
       {/* Save Modal */}
       <Modal visible={showSaveModal} animationType="slide" transparent onRequestClose={() => setShowSaveModal(false)}>
@@ -420,9 +303,7 @@ export default function CalculatorScreen() {
           <TouchableOpacity activeOpacity={1} style={styles.saveModalContent}>
             <View style={styles.modalHandle} />
             <ThemedText style={styles.modalTitle}>Save Calculation</ThemedText>
-            <ThemedText style={styles.saveModalSubtitle}>
-              Give your calculation a memorable name
-            </ThemedText>
+            <ThemedText style={styles.saveModalSubtitle}>Give your calculation a memorable name</ThemedText>
             <TextInput
               style={styles.saveInput}
               value={saveTitle}
@@ -466,22 +347,30 @@ export default function CalculatorScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
     backgroundColor: '#030712',
+  },
+  topGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 300,
+    zIndex: 0,
   },
   scroll: {
     flex: 1,
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 100,
+    paddingTop: 60,
+    paddingBottom: 120,
   },
   headerGroup: {
     marginBottom: 24,
@@ -489,148 +378,179 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
-    color: '#F9FAFB',
-    letterSpacing: -0.5,
-  },
-  premiumBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    marginLeft: 12,
-  },
-  premiumText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: PREMIUM_GOLD,
-    marginLeft: 4,
-    letterSpacing: 0.5,
+    color: '#FFFFFF',
+    marginLeft: 10,
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    fontWeight: '500',
+    fontSize: 15,
+    color: '#9CA3AF',
   },
   resultCard: {
-    backgroundColor: '#065F46',
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
-  },
-  resultHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 24,
   },
   resultLabel: {
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 14,
-    fontWeight: '600',
-  },
-  growthBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  growthText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 4,
+    fontWeight: '500',
+    marginBottom: 4,
   },
   totalBalance: {
     color: '#FFFFFF',
-    fontSize: 36,
+    fontSize: 38,
     fontWeight: '700',
-    marginBottom: 20,
+    marginBottom: 16,
     letterSpacing: -1,
   },
-  progressSection: {
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
+  statItem: {},
+  statItemRight: {
+    alignItems: 'flex-end',
+  },
+  statLabel: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  statValueGreen: {
+    color: '#34D399',
+    fontSize: 18,
+    fontWeight: '700',
+  },
   progressBar: {
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: 'rgba(255,255,255,0.2)',
     overflow: 'hidden',
     flexDirection: 'row',
+    marginBottom: 8,
   },
-  progressSegmentPrincipal: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 4,
-  },
-  progressSegmentInterest: {
+  progressPrincipal: {
     backgroundColor: '#34D399',
+    borderRadius: 3,
   },
-  progressLegend: {
+  progressInterest: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  progressLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  legendPrincipal: {
-    backgroundColor: '#FFFFFF',
-  },
-  legendInterest: {
-    backgroundColor: '#34D399',
-  },
-  legendLabel: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
+  progressLabel: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 11,
     fontWeight: '500',
   },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    marginBottom: 16,
+  inputCard: {
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#1F2937',
   },
-  summaryGrid: {
+  inputHeader: {
     flexDirection: 'row',
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryItemMiddle: {
     alignItems: 'center',
+    marginBottom: 12,
   },
-  summaryLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
-    marginBottom: 4,
+  inputIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  inputLabel: {
+    color: '#9CA3AF',
+    fontSize: 13,
     fontWeight: '500',
   },
-  summaryValue: {
+  input: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '600',
   },
-  interestValue: {
-    color: '#A7F3D0',
+  inputWithSuffix: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inputFlex: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  inputSuffix: {
+    color: '#6B7280',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  frequencyButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  frequencyButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#1F2937',
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  frequencyButtonActive: {
+    backgroundColor: GREEN_ACCENT,
+    borderColor: GREEN_ACCENT,
+  },
+  frequencyButtonText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  frequencyButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  formulaCard: {
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+  },
+  formulaTitle: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  formulaHighlight: {
+    color: '#6EE7B7',
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+  },
+  formulaDescription: {
+    color: '#6B7280',
+    fontSize: 12,
+    lineHeight: 18,
   },
   saveButtonWrapper: {
     borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 32,
   },
   saveButton: {
     flexDirection: 'row',
@@ -644,107 +564,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  sectionTitle: {
-    color: '#F9FAFB',
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  inputBlock: {
-    marginBottom: 14,
-  },
-  inputLabel: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111827',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-  },
-  iconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  currencyPrefix: {
-    color: '#6B7280',
-    fontSize: 17,
-    fontWeight: '600',
-    marginRight: 2,
-  },
-  input: {
-    flex: 1,
-    color: '#F9FAFB',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  suffixBadge: {
-    backgroundColor: '#1F2937',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  inputSuffix: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  selectorValue: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#F9FAFB',
-  },
-  chevronBadge: {
-    backgroundColor: '#1F2937',
-    padding: 8,
-    borderRadius: 8,
-  },
-  formulaCard: {
-    backgroundColor: '#111827',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-  },
-  formulaHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  formulaText: {
-    textAlign: 'center',
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
-  },
-  formulaCaption: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '500',
-    marginLeft: 6,
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
+  saveModalContent: {
     backgroundColor: '#1F2937',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -764,39 +589,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#F9FAFB',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: '#111827',
-  },
-  modalOptionSelected: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-  },
-  modalOptionText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#D1D5DB',
-  },
-  modalOptionTextSelected: {
-    color: GREEN_ACCENT,
-  },
-  saveModalContent: {
-    backgroundColor: '#1F2937',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    paddingTop: 12,
+    textAlign: 'center',
   },
   saveModalSubtitle: {
     fontSize: 14,

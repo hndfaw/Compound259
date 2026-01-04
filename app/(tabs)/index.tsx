@@ -39,11 +39,42 @@ const formatCurrency = (value: number) =>
     minimumFractionDigits: 2,
   }).format(isFinite(value) ? value : 0);
 
+const trimTrailingZeros = (formatted: string) => formatted.replace(/\.00(?=$|[A-Za-z])/g, '');
+
+const formatCurrencySmart = (value: number) => {
+  if (!isFinite(value)) return '$0';
+  const abs = Math.abs(value);
+  const sign = value < 0 ? '-' : '';
+
+  const units = [
+    { value: 1e12, suffix: 'T' },
+    { value: 1e9, suffix: 'B' },
+    { value: 1e6, suffix: 'M' },
+  ];
+
+  if (abs >= 1e15) {
+    return `${sign}$${abs.toExponential(2).replace('e+', 'e')}`;
+  }
+
+  const matchedUnit = units.find((unit) => abs >= unit.value);
+  if (matchedUnit) {
+    const compactValue = abs / matchedUnit.value;
+    const decimals = compactValue >= 10 ? 1 : 2;
+    return trimTrailingZeros(`${sign}$${compactValue.toFixed(decimals)}${matchedUnit.suffix}`);
+  }
+
+  return trimTrailingZeros(formatCurrency(value));
+};
+
 const formatWithCommas = (value: string) => {
   const digitsOnly = value.replace(/[^0-9]/g, '');
   if (!digitsOnly) return '';
   return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 };
+
+const formatCurrencyTrim = (value: number) => trimTrailingZeros(formatCurrency(value));
+
+const parseNumber = (value: string) => Number(value.replace(/,/g, '')) || 0;
 
 export default function CalculatorScreen() {
   const insets = useSafeAreaInsets();
@@ -54,6 +85,10 @@ export default function CalculatorScreen() {
   const [estimatedRate, setEstimatedRate] = useState('7');
   const [totalBalance, setTotalBalance] = useState(0);
   const [interestEarned, setInterestEarned] = useState(0);
+  const [useCompactBalance, setUseCompactBalance] = useState(false);
+  const [useCompactInterest, setUseCompactInterest] = useState(false);
+  const [balanceWidth, setBalanceWidth] = useState(0);
+  const [interestWidth, setInterestWidth] = useState(0);
 
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveTitle, setSaveTitle] = useState('');
@@ -62,8 +97,18 @@ export default function CalculatorScreen() {
 
   const { saveCalculation } = useCalculations();
 
+  const balanceDisplay = useMemo(
+    () => (useCompactBalance ? formatCurrencySmart(totalBalance) : formatCurrencyTrim(totalBalance)),
+    [totalBalance, useCompactBalance],
+  );
+
+  const interestDisplay = useMemo(
+    () => (useCompactInterest ? formatCurrencySmart(interestEarned) : formatCurrencyTrim(interestEarned)),
+    [interestEarned, useCompactInterest],
+  );
+
   const calculateInvestment = useCallback(() => {
-    const principal = Number(initialDeposit.replace(/,/g, '')) || 0;
+    const principal = parseNumber(initialDeposit);
     const annualRate = (Number(estimatedRate) || 0) / 100;
     const years = Number(yearsOfGrowth) || 0;
     const n = FREQUENCY_PERIODS[frequency];
@@ -81,13 +126,13 @@ export default function CalculatorScreen() {
   }, [calculateInvestment]);
 
   const growthPercentage = useMemo(() => {
-    const principal = Number(initialDeposit) || 1;
+    const principal = parseNumber(initialDeposit) || 1;
     return ((interestEarned / principal) * 100).toFixed(1);
   }, [interestEarned, initialDeposit]);
 
   const principalRatio = useMemo(() => {
     if (totalBalance <= 0) return 0.5;
-    const principal = Number(initialDeposit) || 0;
+    const principal = parseNumber(initialDeposit);
     return Math.min(Math.max(principal / totalBalance, 0.1), 0.9);
   }, [initialDeposit, totalBalance]);
 
@@ -110,7 +155,7 @@ export default function CalculatorScreen() {
       await saveCalculation({
         title: saveTitle.trim(),
         finalBalance: totalBalance,
-        initialDeposit: Number(initialDeposit.replace(/,/g, '')) || 0,
+        initialDeposit: parseNumber(initialDeposit),
         interestEarned,
         contributions: 0,
         contributionAmount: 0,
@@ -174,12 +219,48 @@ export default function CalculatorScreen() {
           style={styles.resultCard}
         >
           <ThemedText style={styles.resultLabel}>Future Value</ThemedText>
-          <ThemedText style={styles.totalBalance}>{formatCurrency(totalBalance)}</ThemedText>
+          <View
+            onLayout={(e) => setBalanceWidth(e.nativeEvent.layout.width)}
+            style={{ alignSelf: 'stretch' }}
+          >
+            <ThemedText
+              style={styles.totalBalance}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.6}
+              onTextLayout={(e) => {
+                const lineWidth = e.nativeEvent.lines?.[0]?.width || 0;
+                if (!balanceWidth) return;
+                const shouldCompact = !useCompactBalance && lineWidth > balanceWidth * 0.98;
+                if (shouldCompact) setUseCompactBalance(true);
+              }}
+            >
+              {balanceDisplay}
+            </ThemedText>
+          </View>
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <ThemedText style={styles.statLabel}>Total Interest</ThemedText>
-              <ThemedText style={styles.statValueGreen}>{formatCurrency(interestEarned)}</ThemedText>
+              <View
+                onLayout={(e) => setInterestWidth(e.nativeEvent.layout.width)}
+                style={{ alignSelf: 'stretch' }}
+              >
+                <ThemedText
+                  style={styles.statValueGreen}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  onTextLayout={(e) => {
+                    const lineWidth = e.nativeEvent.lines?.[0]?.width || 0;
+                    if (!interestWidth) return;
+                    const shouldCompact = !useCompactInterest && lineWidth > interestWidth * 0.98;
+                    if (shouldCompact) setUseCompactInterest(true);
+                  }}
+                >
+                  {interestDisplay}
+                </ThemedText>
+              </View>
             </View>
             <View style={styles.statItemRight}>
               <ThemedText style={styles.statLabel}>Growth</ThemedText>
@@ -214,6 +295,7 @@ export default function CalculatorScreen() {
             placeholder="10000"
             placeholderTextColor="#4B5563"
             selectionColor={GREEN_ACCENT}
+            maxLength={21}
           />
         </View>
 
@@ -233,6 +315,7 @@ export default function CalculatorScreen() {
               placeholder="7"
               placeholderTextColor="#4B5563"
               selectionColor={GREEN_ACCENT}
+              maxLength={8}
             />
             <ThemedText style={styles.inputSuffix}>%</ThemedText>
           </View>
@@ -271,6 +354,7 @@ export default function CalculatorScreen() {
               placeholder="10"
               placeholderTextColor="#4B5563"
               selectionColor={GREEN_ACCENT}
+              maxLength={6}
             />
             <ThemedText style={styles.inputSuffix}>years</ThemedText>
           </View>
@@ -380,7 +464,7 @@ export default function CalculatorScreen() {
             />
             <View style={styles.saveModalPreview}>
               <ThemedText style={styles.previewLabel}>Final Balance</ThemedText>
-              <ThemedText style={styles.previewValue}>{formatCurrency(totalBalance)}</ThemedText>
+              <ThemedText style={styles.previewValue}>{formatCurrencyTrim(totalBalance)}</ThemedText>
             </View>
             <View style={styles.saveModalActions}>
               <TouchableOpacity

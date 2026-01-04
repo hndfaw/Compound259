@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -50,6 +51,7 @@ export default function CalculatorScreen() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveTitle, setSaveTitle] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
 
   const { saveCalculation } = useCalculations();
 
@@ -87,6 +89,7 @@ export default function CalculatorScreen() {
       Haptics.selectionAsync();
     }
     setFrequency(selected);
+    setShowFrequencyPicker(false);
   };
 
   const handleSave = async () => {
@@ -256,22 +259,17 @@ export default function CalculatorScreen() {
             </View>
             <ThemedText style={styles.inputLabel}>Compound Frequency</ThemedText>
           </View>
-          <View style={styles.frequencyButtons}>
-            {FREQUENCY_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[styles.frequencyButton, frequency === option && styles.frequencyButtonActive]}
-                onPress={() => handleFrequencySelect(option)}
-                activeOpacity={0.7}
-              >
-                <ThemedText
-                  style={[styles.frequencyButtonText, frequency === option && styles.frequencyButtonTextActive]}
-                >
-                  {option}
-                </ThemedText>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.selectorRow}
+            onPress={() => {
+              if (Platform.OS === 'ios') Haptics.selectionAsync();
+              setShowFrequencyPicker(true);
+            }}
+          >
+            <ThemedText style={styles.selectorText}>{frequency}</ThemedText>
+            <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
         </View>
 
         {/* Formula Section */}
@@ -298,6 +296,53 @@ export default function CalculatorScreen() {
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Frequency Picker Modal */}
+      <Modal
+        visible={showFrequencyPicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowFrequencyPicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFrequencyPicker(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.pickerSheet}>
+            <View style={styles.pickerHandle} />
+            <ThemedText style={styles.modalTitle}>Select Frequency</ThemedText>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={frequency}
+                onValueChange={(itemValue: FrequencyType) => handleFrequencySelect(itemValue)}
+                dropdownIconColor="#9CA3AF"
+                style={styles.picker}
+                mode="dropdown"
+              >
+                {FREQUENCY_OPTIONS.map((option) => (
+                  <Picker.Item key={option} label={option} value={option} color="#FFFFFF" />
+                ))}
+              </Picker>
+            </View>
+            <View style={styles.pickerActions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setShowFrequencyPicker(false)}>
+                <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmButton} onPress={() => setShowFrequencyPicker(false)}>
+                <LinearGradient
+                  colors={['#3B82F6', '#2563EB']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.confirmButtonGradient}
+                >
+                  <ThemedText style={styles.confirmButtonText}>Done</ThemedText>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Save Modal */}
       <Modal visible={showSaveModal} animationType="slide" transparent onRequestClose={() => setShowSaveModal(false)}>
@@ -536,6 +581,52 @@ const styles = StyleSheet.create({
   },
   frequencyButtonTextActive: {
     color: '#FFFFFF',
+  },
+  selectorRow: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectorText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  pickerWrapper: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+  },
+  picker: {
+    color: '#FFFFFF',
+  },
+  pickerSheet: {
+    backgroundColor: '#1F2937',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    paddingTop: 12,
+  },
+  pickerHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: '#4B5563',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  pickerActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
   },
   formulaCard: {
     backgroundColor: '#111827',

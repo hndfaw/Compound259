@@ -22,6 +22,7 @@ import { useCalculations } from '@/hooks/use-calculations';
 const GREEN_ACCENT = '#10B981';
 
 const FREQUENCY_OPTIONS = ['Annually', 'Semi-annually', 'Quarterly', 'Monthly'] as const;
+const RATE_PRESETS = ['4', '7', '10', '15', '20'];
 type FrequencyType = (typeof FREQUENCY_OPTIONS)[number];
 
 const FREQUENCY_PERIODS: Record<FrequencyType, number> = {
@@ -215,7 +216,7 @@ export default function CalculatorScreen() {
             <View style={styles.inputIconBadge}>
               <Ionicons name="analytics-outline" size={16} color={GREEN_ACCENT} />
             </View>
-            <ThemedText style={styles.inputLabel}>Annual Interest Rate</ThemedText>
+            <ThemedText style={styles.inputLabel}>Interest Rate</ThemedText>
           </View>
           <View style={styles.inputWithSuffix}>
             <TextInput
@@ -228,6 +229,23 @@ export default function CalculatorScreen() {
               selectionColor={GREEN_ACCENT}
             />
             <ThemedText style={styles.inputSuffix}>%</ThemedText>
+          </View>
+          <View style={styles.presetRow}>
+            {RATE_PRESETS.map((rate) => {
+              const active = estimatedRate === rate;
+              return (
+                <TouchableOpacity
+                  key={rate}
+                  style={[styles.presetChip, active && styles.presetChipActive]}
+                  onPress={() => setEstimatedRate(rate)}
+                  activeOpacity={0.8}
+                >
+                  <ThemedText style={[styles.presetText, active && styles.presetTextActive]}>
+                    {rate}%
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -545,6 +563,31 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 16,
     fontWeight: '500',
+  },
+  presetRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  presetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    backgroundColor: '#0B1220',
+  },
+  presetChipActive: {
+    borderColor: GREEN_ACCENT,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  },
+  presetText: {
+    color: '#9CA3AF',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  presetTextActive: {
+    color: '#FFFFFF',
   },
   frequencyButtons: {
     flexDirection: 'row',

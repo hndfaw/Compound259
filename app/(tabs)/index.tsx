@@ -7,13 +7,13 @@ import {
   Keyboard,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { useCalculations } from '@/hooks/use-calculations';

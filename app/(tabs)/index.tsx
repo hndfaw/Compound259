@@ -39,10 +39,16 @@ const formatCurrency = (value: number) =>
     minimumFractionDigits: 2,
   }).format(isFinite(value) ? value : 0);
 
+const formatWithCommas = (value: string) => {
+  const digitsOnly = value.replace(/[^0-9]/g, '');
+  if (!digitsOnly) return '';
+  return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
+
 export default function CalculatorScreen() {
   const insets = useSafeAreaInsets();
 
-  const [initialDeposit, setInitialDeposit] = useState('10000');
+  const [initialDeposit, setInitialDeposit] = useState(() => formatWithCommas('10000'));
   const [frequency, setFrequency] = useState<FrequencyType>('Annually');
   const [yearsOfGrowth, setYearsOfGrowth] = useState('10');
   const [estimatedRate, setEstimatedRate] = useState('7');
@@ -57,7 +63,7 @@ export default function CalculatorScreen() {
   const { saveCalculation } = useCalculations();
 
   const calculateInvestment = useCallback(() => {
-    const principal = Number(initialDeposit) || 0;
+    const principal = Number(initialDeposit.replace(/,/g, '')) || 0;
     const annualRate = (Number(estimatedRate) || 0) / 100;
     const years = Number(yearsOfGrowth) || 0;
     const n = FREQUENCY_PERIODS[frequency];
@@ -104,7 +110,7 @@ export default function CalculatorScreen() {
       await saveCalculation({
         title: saveTitle.trim(),
         finalBalance: totalBalance,
-        initialDeposit: Number(initialDeposit) || 0,
+        initialDeposit: Number(initialDeposit.replace(/,/g, '')) || 0,
         interestEarned,
         contributions: 0,
         contributionAmount: 0,
@@ -203,7 +209,7 @@ export default function CalculatorScreen() {
           <TextInput
             style={styles.input}
             value={initialDeposit}
-            onChangeText={setInitialDeposit}
+            onChangeText={(text) => setInitialDeposit(formatWithCommas(text))}
             keyboardType="numeric"
             placeholder="10000"
             placeholderTextColor="#4B5563"

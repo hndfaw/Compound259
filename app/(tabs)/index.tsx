@@ -272,17 +272,6 @@ export default function CalculatorScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Formula Section */}
-        <View style={styles.formulaCard}>
-          <ThemedText style={styles.formulaTitle}>
-            Compound interest is calculated using the formula:{' '}
-            <ThemedText style={styles.formulaHighlight}>A = P(1 + r/n)^(nt)</ThemedText>
-          </ThemedText>
-          <ThemedText style={styles.formulaDescription}>
-            Where P is principal, r is annual rate, n is compound frequency, and t is time in years.
-          </ThemedText>
-        </View>
-
         {/* Save Button */}
         <TouchableOpacity activeOpacity={0.85} style={styles.saveButtonWrapper} onPress={openSaveModal}>
           <LinearGradient
@@ -627,29 +616,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: 16,
-  },
-  formulaCard: {
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-  },
-  formulaTitle: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  formulaHighlight: {
-    color: '#6EE7B7',
-    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
-  },
-  formulaDescription: {
-    color: '#6B7280',
-    fontSize: 12,
-    lineHeight: 18,
   },
   saveButtonWrapper: {
     borderRadius: 16,

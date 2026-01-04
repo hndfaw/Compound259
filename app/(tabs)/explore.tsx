@@ -9,13 +9,13 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { SavedCalculation, useCalculations } from '@/hooks/use-calculations';
@@ -43,6 +43,7 @@ export default function SavedScreen() {
   const [editingCalculation, setEditingCalculation] = useState<SavedCalculation | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useFocusEffect(
     useCallback(() => {
@@ -113,10 +114,14 @@ export default function SavedScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, calculations.length === 0 && styles.contentCentered]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: Math.max(24, insets.top + 8) },
+          calculations.length === 0 && styles.contentCentered,
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -288,7 +293,7 @@ export default function SavedScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -348,12 +353,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F9FAFB',
     letterSpacing: -0.5,
+    lineHeight: 34,
   },
   subtitle: {
     fontSize: 15,
     color: '#6B7280',
     marginBottom: 24,
     fontWeight: '500',
+    lineHeight: 22,
   },
   emptyState: {
     flex: 1,

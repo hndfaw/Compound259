@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { useCalculations } from '@/hooks/use-calculations';
@@ -37,6 +38,8 @@ const formatCurrency = (value: number) =>
   }).format(isFinite(value) ? value : 0);
 
 export default function CalculatorScreen() {
+  const insets = useSafeAreaInsets();
+
   const [initialDeposit, setInitialDeposit] = useState('10000');
   const [frequency, setFrequency] = useState<FrequencyType>('Annually');
   const [yearsOfGrowth, setYearsOfGrowth] = useState('10');
@@ -137,7 +140,10 @@ export default function CalculatorScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: Math.max(52, insets.top + 28) },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -385,10 +391,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     marginLeft: 10,
+    lineHeight: 34,
   },
   headerSubtitle: {
     fontSize: 15,
     color: '#9CA3AF',
+    lineHeight: 22,
   },
   resultCard: {
     borderRadius: 20,
@@ -400,6 +408,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 4,
+    lineHeight: 20,
   },
   totalBalance: {
     color: '#FFFFFF',
@@ -407,6 +416,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 16,
     letterSpacing: -1,
+    lineHeight: 44,
   },
   statsRow: {
     flexDirection: 'row',
@@ -427,6 +437,7 @@ const styles = StyleSheet.create({
     color: '#34D399',
     fontSize: 18,
     fontWeight: '700',
+    lineHeight: 22,
   },
   progressBar: {
     height: 6,
@@ -451,6 +462,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     fontSize: 11,
     fontWeight: '500',
+    lineHeight: 14,
   },
   inputCard: {
     backgroundColor: '#111827',

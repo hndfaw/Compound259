@@ -110,7 +110,7 @@ export default function SavedScreen() {
       </View>
       <ThemedText style={styles.emptyTitle}>No Saved Calculations</ThemedText>
       <ThemedText style={styles.emptySubtitle}>
-        Your saved calculations will appear here.{"\\n"}Go to Calculator to create one.
+        Your saved calculations will appear here.{"\n"}Go to Calculator to create one.
       </ThemedText>
     </View>
   );

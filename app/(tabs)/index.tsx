@@ -100,6 +100,8 @@ export default function CalculatorScreen() {
 
   const { saveCalculation } = useCalculations();
 
+  const isSaveDisabled = isSaving || !saveTitle.trim();
+
   const balanceDisplay = useMemo(
     () => (useCompactBalance ? formatCurrencySmart(totalBalance) : formatCurrencyTrim(totalBalance)),
     [totalBalance, useCompactBalance],
@@ -521,12 +523,12 @@ export default function CalculatorScreen() {
                   <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.confirmButton, isSaving && styles.confirmButtonDisabled]}
+                  style={[styles.confirmButton, isSaveDisabled && styles.confirmButtonDisabled]}
                   onPress={handleSave}
-                  disabled={isSaving}
+                  disabled={isSaveDisabled}
                 >
                   <LinearGradient
-                    colors={['#2D3748', '#1F2937']}
+                    colors={isSaveDisabled ? ['#4B5563', '#374151'] : ['#2D3748', '#1F2937']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.confirmButtonGradient}

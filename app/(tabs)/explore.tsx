@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { SavedCalculation, useCalculations } from '@/hooks/use-calculations';
 
@@ -109,18 +110,24 @@ export default function SavedScreen() {
       </View>
       <ThemedText style={styles.emptyTitle}>No Saved Calculations</ThemedText>
       <ThemedText style={styles.emptySubtitle}>
-        Your saved calculations will appear here.{'\n'}Go to Calculator to create one.
+        Your saved calculations will appear here.{"\\n"}Go to Calculator to create one.
       </ThemedText>
     </View>
   );
 
   return (
     <View style={styles.container}>
+      <LinearGradient
+        colors={['rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.05)', 'transparent']}
+        locations={[0, 0.5, 1]}
+        style={styles.topGradient}
+        pointerEvents="none"
+      />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: Math.max(24, insets.top + 8), paddingBottom: 80 + insets.bottom },
+          { paddingTop: Math.max(52, insets.top + 28), paddingBottom: 80 + insets.bottom },
           calculations.length === 0 && styles.contentCentered,
         ]}
         showsVerticalScrollIndicator={false}
@@ -133,19 +140,19 @@ export default function SavedScreen() {
           />
         }
       >
-        <View style={styles.headerRow}>
-          <View style={styles.headerBadge}>
-            <Ionicons name="bookmark" size={16} color={GREEN_ACCENT} />
-          </View>
-          <ThemedText style={styles.headerTitle}>Saved Records</ThemedText>
-        </View>
-        <ThemedText style={styles.subtitle}>
-          {isLoading
-            ? 'Loading...'
-            : calculations.length === 0
-              ? 'No saved calculations yet'
-              : `${calculations.length} saved calculation${calculations.length !== 1 ? 's' : ''}`}
-        </ThemedText>
+        <ScreenHeader
+          icon="bookmark"
+          iconSize={18}
+          accent={GREEN_ACCENT}
+          title="Saved Records"
+          subtitle={
+            isLoading
+              ? 'Loading...'
+              : calculations.length === 0
+                ? 'No saved calculations yet'
+                : `${calculations.length} saved calculation${calculations.length !== 1 ? 's' : ''}`
+          }
+        />
 
         {calculations.length === 0 && !isLoading ? (
           <EmptyState />
@@ -330,6 +337,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#030712',
   },
+  topGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 300,
+    zIndex: 0,
+  },
   scroll: {
     flex: 1,
   },
@@ -340,34 +355,6 @@ const styles = StyleSheet.create({
   },
   contentCentered: {
     flexGrow: 1,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  headerBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#F9FAFB',
-    letterSpacing: -0.5,
-    lineHeight: 34,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    marginBottom: 24,
-    fontWeight: '500',
-    lineHeight: 22,
   },
   emptyState: {
     flex: 1,

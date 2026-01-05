@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { useCalculations } from '@/hooks/use-calculations';
 
@@ -222,14 +223,13 @@ export default function CalculatorScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
-        <View style={styles.headerGroup}>
-          <View style={styles.headerRow}>
-            <Ionicons name="trending-up" size={28} color={GREEN_ACCENT} />
-            <ThemedText style={styles.headerTitle}>Compound</ThemedText>
-          </View>
-          <ThemedText style={styles.headerSubtitle}>Watch your money grow over time</ThemedText>
-        </View>
+        <ScreenHeader
+          icon="trending-up"
+          iconSize={22}
+          accent={GREEN_ACCENT}
+          title="Compound"
+          subtitle="Watch your money grow over time"
+        />
 
         {/* Result Card */}
         <LinearGradient
@@ -564,26 +564,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 120,
-  },
-  headerGroup: {
-    marginBottom: 24,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginLeft: 10,
-    lineHeight: 34,
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    color: '#9CA3AF',
-    lineHeight: 22,
   },
   resultCard: {
     borderRadius: 20,

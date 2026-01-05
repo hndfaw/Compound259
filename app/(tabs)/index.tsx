@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -208,13 +207,6 @@ export default function CalculatorScreen() {
 
   return (
     <View style={styles.wrapper}>
-      {/* Top gradient overlay */}
-      <LinearGradient
-        colors={['rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.05)', 'transparent']}
-        locations={[0, 0.5, 1]}
-        style={styles.topGradient}
-        pointerEvents="none"
-      />
 
       <ScrollView
         style={styles.scroll}
@@ -234,12 +226,7 @@ export default function CalculatorScreen() {
         />
 
         {/* Result Card */}
-        <LinearGradient
-          colors={['#065F46', '#064E3B', '#022C22']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.resultCard}
-        >
+        <View style={styles.resultCard}>
           <ThemedText style={styles.resultLabel}>Future Value</ThemedText>
           <View
             onLayout={(e) => setBalanceWidth(e.nativeEvent.layout.width)}
@@ -299,7 +286,7 @@ export default function CalculatorScreen() {
             <ThemedText style={styles.progressLabel}>Principal</ThemedText>
             <ThemedText style={styles.progressLabel}>+{growthPercentage}% growth</ThemedText>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Input Fields */}
         <View style={styles.inputCard}>
@@ -423,15 +410,10 @@ export default function CalculatorScreen() {
 
         {/* Save Button */}
         <TouchableOpacity activeOpacity={0.85} style={styles.saveButtonWrapper} onPress={openSaveModal}>
-          <LinearGradient
-            colors={['#2D3748', '#1F2937']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.saveButton}
-          >
+          <View style={styles.saveButton}>
             <Ionicons name="bookmark" size={18} color="#FFFFFF" />
             <ThemedText style={styles.saveButtonText}>Save This Calculation</ThemedText>
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
       </ScrollView>
 
@@ -468,14 +450,9 @@ export default function CalculatorScreen() {
                 <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity style={styles.confirmButton} onPress={() => setShowFrequencyPicker(false)}>
-                <LinearGradient
-                  colors={['#2D3748', '#1F2937']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.confirmButtonGradient}
-                >
+                <View style={styles.confirmButtonGradient}>
                   <ThemedText style={styles.confirmButtonText}>Done</ThemedText>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -527,15 +504,10 @@ export default function CalculatorScreen() {
                   onPress={handleSave}
                   disabled={isSaveDisabled}
                 >
-                  <LinearGradient
-                    colors={isSaveDisabled ? ['#4B5563', '#374151'] : ['#2D3748', '#1F2937']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.confirmButtonGradient}
-                  >
+                  <View style={[styles.confirmButtonGradient, isSaveDisabled && styles.confirmButtonGradientDisabled]}>
                     <Ionicons name="bookmark" size={16} color="#FFFFFF" />
                     <ThemedText style={styles.confirmButtonText}>{isSaving ? 'Saving...' : 'Save'}</ThemedText>
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
@@ -551,14 +523,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#030712',
   },
-  topGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 300,
-    zIndex: 0,
-  },
   scroll: {
     flex: 1,
   },
@@ -571,6 +535,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     marginBottom: 24,
+    backgroundColor: '#065F46',
   },
   resultLabel: {
     color: 'rgba(255,255,255,0.7)',
@@ -786,6 +751,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
+    backgroundColor: '#2D3748',
   },
   saveButtonText: {
     color: '#FFFFFF',
@@ -888,6 +854,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
+    backgroundColor: '#2D3748',
+  },
+  confirmButtonGradientDisabled: {
+    backgroundColor: '#4B5563',
   },
   confirmButtonText: {
     fontSize: 15,

@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import type { ComponentProps } from 'react';
 import React, { useCallback, useState } from 'react';
@@ -117,12 +116,6 @@ export default function SavedScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.05)', 'transparent']}
-        locations={[0, 0.5, 1]}
-        style={styles.topGradient}
-        pointerEvents="none"
-      />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -292,15 +285,10 @@ export default function SavedScreen() {
                   <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.saveButton} onPress={handleSaveEdit}>
-                  <LinearGradient
-                    colors={['#3B82F6', '#2563EB']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.saveButtonGradient}
-                  >
+                  <View style={styles.saveButtonGradient}>
                     <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                     <ThemedText style={styles.saveButtonText}>Save</ThemedText>
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
@@ -336,14 +324,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#030712',
-  },
-  topGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 300,
-    zIndex: 0,
   },
   scroll: {
     flex: 1,
@@ -621,6 +601,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
+    backgroundColor: '#3B82F6',
   },
   saveButtonText: {
     fontSize: 15,

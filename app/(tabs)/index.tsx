@@ -80,6 +80,7 @@ export default function CalculatorScreen() {
   const insets = useSafeAreaInsets();
 
   const [initialDeposit, setInitialDeposit] = useState(() => formatWithCommas('10000'));
+  const [contribution, setContribution] = useState('0');
   const [frequency, setFrequency] = useState<FrequencyType>('Annually');
   const [yearsOfGrowth, setYearsOfGrowth] = useState('10');
   const [estimatedRate, setEstimatedRate] = useState('7');
@@ -109,13 +110,26 @@ export default function CalculatorScreen() {
 
   const calculateInvestment = useCallback(() => {
     const principal = parseNumber(initialDeposit);
+    const periodicContribution = parseNumber(contribution);
     const annualRate = (Number(estimatedRate) || 0) / 100;
     const years = Number(yearsOfGrowth) || 0;
     const n = FREQUENCY_PERIODS[frequency];
 
-    // A = P(1 + r/n)^(nt)
-    const totalFutureValue = principal * Math.pow(1 + annualRate / n, n * years);
-    const totalInterest = totalFutureValue - principal;
+    const periods = n * years;
+    const ratePerPeriod = n > 0 ? annualRate / n : 0;
+
+    // Future value with recurring contributions at the same frequency.
+    const growthFactor = Math.pow(1 + ratePerPeriod, periods);
+    const futureValuePrincipal = principal * growthFactor;
+
+    const futureValueContributions =
+      ratePerPeriod === 0
+        ? periodicContribution * periods
+        : periodicContribution * ((growthFactor - 1) / ratePerPeriod);
+
+    const totalFutureValue = futureValuePrincipal + futureValueContributions;
+    const totalContributions = principal + periodicContribution * periods;
+    const totalInterest = totalFutureValue - totalContributions;
 
     setTotalBalance(totalFutureValue);
     setInterestEarned(totalInterest);
@@ -152,13 +166,18 @@ export default function CalculatorScreen() {
 
     setIsSaving(true);
     try {
+      const periodicContribution = parseNumber(contribution);
+      const n = FREQUENCY_PERIODS[frequency];
+      const years = Number(yearsOfGrowth) || 0;
+      const totalContributionValue = periodicContribution * n * years;
+
       await saveCalculation({
         title: saveTitle.trim(),
         finalBalance: totalBalance,
         initialDeposit: parseNumber(initialDeposit),
         interestEarned,
-        contributions: 0,
-        contributionAmount: 0,
+        contributions: totalContributionValue,
+        contributionAmount: periodicContribution,
         timePeriod: Number(yearsOfGrowth) || 0,
         rateOfReturn: Number(estimatedRate) || 0,
         frequency,
@@ -302,6 +321,25 @@ export default function CalculatorScreen() {
         <View style={styles.inputCard}>
           <View style={styles.inputHeader}>
             <View style={styles.inputIconBadge}>
+              <Ionicons name="add-circle-outline" size={16} color={GREEN_ACCENT} />
+            </View>
+            <ThemedText style={styles.inputLabel}>Contribution (per period)</ThemedText>
+          </View>
+          <TextInput
+            style={styles.input}
+            value={contribution}
+            onChangeText={(text) => setContribution(formatWithCommas(text))}
+            keyboardType="numeric"
+            placeholder="500"
+            placeholderTextColor="#4B5563"
+            selectionColor={GREEN_ACCENT}
+            maxLength={21}
+          />
+        </View>
+
+        <View style={styles.inputCard}>
+          <View style={styles.inputHeader}>
+            <View style={styles.inputIconBadge}>
               <Ionicons name="analytics-outline" size={16} color={GREEN_ACCENT} />
             </View>
             <ThemedText style={styles.inputLabel}>Interest Rate</ThemedText>
@@ -365,7 +403,7 @@ export default function CalculatorScreen() {
             <View style={styles.inputIconBadge}>
               <Ionicons name="sync-outline" size={16} color={GREEN_ACCENT} />
             </View>
-            <ThemedText style={styles.inputLabel}>Compound Frequency</ThemedText>
+            <ThemedText style={styles.inputLabel}>Frequency</ThemedText>
           </View>
           <TouchableOpacity
             activeOpacity={0.8}

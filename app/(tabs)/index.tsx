@@ -88,9 +88,7 @@ export default function CalculatorScreen() {
   const [totalBalance, setTotalBalance] = useState(0);
   const [interestEarned, setInterestEarned] = useState(0);
   const [useCompactBalance, setUseCompactBalance] = useState(false);
-  const [useCompactInterest, setUseCompactInterest] = useState(false);
   const [balanceWidth, setBalanceWidth] = useState(0);
-  const [interestWidth, setInterestWidth] = useState(0);
 
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveTitle, setSaveTitle] = useState('');
@@ -104,11 +102,6 @@ export default function CalculatorScreen() {
   const balanceDisplay = useMemo(
     () => (useCompactBalance ? formatCurrencySmart(totalBalance) : formatCurrencyTrim(totalBalance)),
     [totalBalance, useCompactBalance],
-  );
-
-  const interestDisplay = useMemo(
-    () => (useCompactInterest ? formatCurrencySmart(interestEarned) : formatCurrencyTrim(interestEarned)),
-    [interestEarned, useCompactInterest],
   );
 
   const calculateInvestment = useCallback(() => {
@@ -136,22 +129,46 @@ export default function CalculatorScreen() {
 
     setTotalBalance(totalFutureValue);
     setInterestEarned(totalInterest);
-  }, [initialDeposit, estimatedRate, yearsOfGrowth, frequency]);
+  }, [initialDeposit, contribution, estimatedRate, yearsOfGrowth, frequency]);
 
   useEffect(() => {
     calculateInvestment();
   }, [calculateInvestment]);
 
-  const growthPercentage = useMemo(() => {
-    const principal = parseNumber(initialDeposit) || 1;
-    return ((interestEarned / principal) * 100).toFixed(1);
-  }, [interestEarned, initialDeposit]);
+  const totalContributionsValue = useMemo(() => {
+    const periodicContribution = parseNumber(contribution);
+    const n = FREQUENCY_PERIODS[frequency];
+    const years = Number(yearsOfGrowth) || 0;
+    return periodicContribution * n * years;
+  }, [contribution, frequency, yearsOfGrowth]);
 
-  const principalRatio = useMemo(() => {
-    if (totalBalance <= 0) return 0.5;
+  const growthPercentage = useMemo(() => {
+    const totalInvested = parseNumber(initialDeposit) + totalContributionsValue;
+    if (totalInvested <= 0) return '0.0';
+    return ((interestEarned / totalInvested) * 100).toFixed(1);
+  }, [interestEarned, initialDeposit, totalContributionsValue]);
+
+  const { principalRatio, contributionRatio, interestRatio } = useMemo(() => {
     const principal = parseNumber(initialDeposit);
-    return Math.min(Math.max(principal / totalBalance, 0.1), 0.9);
-  }, [initialDeposit, totalBalance]);
+    const periodicContribution = parseNumber(contribution);
+    const n = FREQUENCY_PERIODS[frequency];
+    const years = Number(yearsOfGrowth) || 0;
+    const totalContributions = periodicContribution * n * years;
+
+    if (totalBalance <= 0) {
+      return { principalRatio: 0.33, contributionRatio: 0.33, interestRatio: 0.34 };
+    }
+
+    const pRatio = principal / totalBalance;
+    const cRatio = totalContributions / totalBalance;
+    const iRatio = interestEarned / totalBalance;
+
+    return {
+      principalRatio: Math.max(pRatio, 0.05),
+      contributionRatio: Math.max(cRatio, 0),
+      interestRatio: Math.max(iRatio, 0.05),
+    };
+  }, [initialDeposit, contribution, frequency, yearsOfGrowth, totalBalance, interestEarned]);
 
   const handleFrequencySelect = (selected: FrequencyType) => {
     if (Platform.OS === 'ios') {
@@ -227,7 +244,12 @@ export default function CalculatorScreen() {
 
         {/* Result Card */}
         <View style={styles.resultCard}>
-          <ThemedText style={styles.resultLabel}>Future Value</ThemedText>
+          <View style={styles.resultHeader}>
+            <ThemedText style={styles.resultLabel}>Future Value</ThemedText>
+            <View style={styles.growthBadge}>
+              <ThemedText style={styles.growthBadgeText}>+{growthPercentage}%</ThemedText>
+            </View>
+          </View>
           <View
             onLayout={(e) => setBalanceWidth(e.nativeEvent.layout.width)}
             style={{ alignSelf: 'stretch' }}
@@ -248,43 +270,38 @@ export default function CalculatorScreen() {
             </ThemedText>
           </View>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <ThemedText style={styles.statLabel}>Total Interest</ThemedText>
-              <View
-                onLayout={(e) => setInterestWidth(e.nativeEvent.layout.width)}
-                style={{ alignSelf: 'stretch' }}
-              >
-                <ThemedText
-                  style={styles.statValueGreen}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}
-                  onTextLayout={(e) => {
-                    const lineWidth = e.nativeEvent.lines?.[0]?.width || 0;
-                    if (!interestWidth) return;
-                    const shouldCompact = !useCompactInterest && lineWidth > interestWidth * 0.98;
-                    if (shouldCompact) setUseCompactInterest(true);
-                  }}
-                >
-                  {interestDisplay}
-                </ThemedText>
-              </View>
-            </View>
-            <View style={styles.statItemRight}>
-              <ThemedText style={styles.statLabel}>Growth</ThemedText>
-              <ThemedText style={styles.statValueGreen}>+{growthPercentage}%</ThemedText>
-            </View>
-          </View>
-
           <View style={styles.progressBar}>
             <View style={[styles.progressPrincipal, { flex: principalRatio }]} />
-            <View style={[styles.progressInterest, { flex: 1 - principalRatio }]} />
+            {contributionRatio > 0 && (
+              <View style={[styles.progressContribution, { flex: contributionRatio }]} />
+            )}
+            <View style={[styles.progressInterest, { flex: interestRatio }]} />
           </View>
 
-          <View style={styles.progressLabels}>
-            <ThemedText style={styles.progressLabel}>Principal</ThemedText>
-            <ThemedText style={styles.progressLabel}>+{growthPercentage}% growth</ThemedText>
+          <View style={styles.breakdownRow}>
+            <View style={styles.breakdownItem}>
+              <View style={[styles.breakdownDot, { backgroundColor: '#34D399' }]} />
+              <View style={styles.breakdownTexts}>
+                <ThemedText style={styles.breakdownLabel}>Principal</ThemedText>
+                <ThemedText style={styles.breakdownValue}>{formatCurrencySmart(parseNumber(initialDeposit))}</ThemedText>
+              </View>
+            </View>
+            {contributionRatio > 0 && (
+              <View style={styles.breakdownItem}>
+                <View style={[styles.breakdownDot, { backgroundColor: '#60A5FA' }]} />
+                <View style={styles.breakdownTexts}>
+                  <ThemedText style={styles.breakdownLabel}>Contributions</ThemedText>
+                  <ThemedText style={styles.breakdownValue}>{formatCurrencySmart(totalContributionsValue)}</ThemedText>
+                </View>
+              </View>
+            )}
+            <View style={styles.breakdownItem}>
+              <View style={[styles.breakdownDot, { backgroundColor: '#F59E0B' }]} />
+              <View style={styles.breakdownTexts}>
+                <ThemedText style={styles.breakdownLabel}>Interest</ThemedText>
+                <ThemedText style={styles.breakdownValueHighlight}>{formatCurrencySmart(interestEarned)}</ThemedText>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -438,10 +455,11 @@ export default function CalculatorScreen() {
                 onValueChange={(itemValue: FrequencyType) => handleFrequencySelect(itemValue)}
                 dropdownIconColor="#9CA3AF"
                 style={styles.picker}
+                itemStyle={styles.pickerItem}
                 mode="dropdown"
               >
                 {FREQUENCY_OPTIONS.map((option) => (
-                  <Picker.Item key={option} label={option} value={option} color="#FFFFFF" />
+                  <Picker.Item key={option} label={option} value={option} color={Platform.OS === 'ios' ? '#FFFFFF' : '#FFFFFF'} />
                 ))}
               </Picker>
             </View>
@@ -464,7 +482,7 @@ export default function CalculatorScreen() {
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 0}
+          keyboardVerticalOffset={0}
         >
           <TouchableOpacity
             style={styles.modalOverlay}
@@ -537,12 +555,28 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     backgroundColor: '#065F46',
   },
+  resultHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   resultLabel: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 14,
     fontWeight: '500',
-    marginBottom: 4,
     lineHeight: 20,
+  },
+  growthBadge: {
+    backgroundColor: 'rgba(52, 211, 153, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  growthBadgeText: {
+    color: '#34D399',
+    fontSize: 13,
+    fontWeight: '700',
   },
   totalBalance: {
     color: '#FFFFFF',
@@ -552,51 +586,56 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
     lineHeight: 44,
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  statItem: {},
-  statItemRight: {
-    alignItems: 'flex-end',
-  },
-  statLabel: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  statValueGreen: {
-    color: '#34D399',
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 22,
-  },
   progressBar: {
-    height: 6,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: 'rgba(255,255,255,0.2)',
     overflow: 'hidden',
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   progressPrincipal: {
     backgroundColor: '#34D399',
-    borderRadius: 3,
+  },
+  progressContribution: {
+    backgroundColor: '#60A5FA',
   },
   progressInterest: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: '#F59E0B',
   },
-  progressLabels: {
+  breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  progressLabel: {
-    color: 'rgba(255,255,255,0.5)',
+  breakdownItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  breakdownDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 4,
+    marginRight: 6,
+  },
+  breakdownTexts: {
+    flexDirection: 'column',
+  },
+  breakdownLabel: {
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 11,
     fontWeight: '500',
-    lineHeight: 14,
+    marginBottom: 2,
+  },
+  breakdownValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  breakdownValueHighlight: {
+    color: '#F59E0B',
+    fontSize: 14,
+    fontWeight: '600',
   },
   inputCard: {
     backgroundColor: '#111827',
@@ -629,6 +668,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: '600',
+    lineHeight: 32,
+    paddingVertical: 4,
   },
   inputWithSuffix: {
     flexDirection: 'row',
@@ -640,6 +681,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: '600',
+    lineHeight: 32,
+    paddingVertical: 4,
   },
   inputSuffix: {
     color: '#6B7280',
@@ -720,6 +763,10 @@ const styles = StyleSheet.create({
   },
   picker: {
     color: '#FFFFFF',
+  },
+  pickerItem: {
+    color: '#FFFFFF',
+    fontSize: 18,
   },
   pickerSheet: {
     backgroundColor: '#1F2937',

@@ -431,6 +431,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.5,
+    lineHeight: 34,
   },
   detailsGrid: {
     flexDirection: 'row',

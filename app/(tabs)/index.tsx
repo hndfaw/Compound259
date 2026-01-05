@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -216,7 +217,7 @@ export default function CalculatorScreen() {
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: Math.max(52, insets.top + 28) },
+          { paddingTop: Math.max(52, insets.top + 28), paddingBottom: 80 + insets.bottom },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -481,57 +482,63 @@ export default function CalculatorScreen() {
 
       {/* Save Modal */}
       <Modal visible={showSaveModal} animationType="slide" transparent onRequestClose={() => setShowSaveModal(false)}>
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowSaveModal(false)}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 0}
         >
-          <TouchableOpacity activeOpacity={1} style={styles.saveModalContent}>
-            <View style={styles.modalHandle} />
-            <ThemedText style={styles.modalTitle}>Save Calculation</ThemedText>
-            <ThemedText style={styles.saveModalSubtitle}>Give your calculation a memorable name</ThemedText>
-            <TextInput
-              style={styles.saveInput}
-              value={saveTitle}
-              onChangeText={setSaveTitle}
-              placeholder="e.g., Retirement Fund Goal"
-              placeholderTextColor="#6B7280"
-              selectionColor={GREEN_ACCENT}
-              autoFocus
-              maxLength={50}
-            />
-            <View style={styles.saveModalPreview}>
-              <ThemedText style={styles.previewLabel}>Final Balance</ThemedText>
-              <ThemedText style={styles.previewValue}>{formatCurrencyTrim(totalBalance)}</ThemedText>
-            </View>
-            <View style={styles.saveModalActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  setShowSaveModal(false);
-                  setSaveTitle('');
-                }}
-              >
-                <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.confirmButton, isSaving && styles.confirmButtonDisabled]}
-                onPress={handleSave}
-                disabled={isSaving}
-              >
-                <LinearGradient
-                  colors={['#2D3748', '#1F2937']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.confirmButtonGradient}
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowSaveModal(false)}
+          >
+            <TouchableOpacity activeOpacity={1} style={styles.saveModalContent}>
+              <View style={styles.modalHandle} />
+              <ThemedText style={styles.modalTitle}>Save Calculation</ThemedText>
+              <ThemedText style={styles.saveModalSubtitle}>Give your calculation a memorable name</ThemedText>
+              <TextInput
+                style={styles.saveInput}
+                value={saveTitle}
+                onChangeText={setSaveTitle}
+                placeholder="e.g., Retirement Fund Goal"
+                placeholderTextColor="#6B7280"
+                selectionColor={GREEN_ACCENT}
+                autoFocus
+                maxLength={50}
+              />
+              <View style={styles.saveModalPreview}>
+                <ThemedText style={styles.previewLabel}>Final Balance</ThemedText>
+                <ThemedText style={styles.previewValue}>{formatCurrencyTrim(totalBalance)}</ThemedText>
+              </View>
+              <View style={styles.saveModalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setShowSaveModal(false);
+                    setSaveTitle('');
+                  }}
                 >
-                  <Ionicons name="bookmark" size={16} color="#FFFFFF" />
-                  <ThemedText style={styles.confirmButtonText}>{isSaving ? 'Saving...' : 'Save'}</ThemedText>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+                  <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.confirmButton, isSaving && styles.confirmButtonDisabled]}
+                  onPress={handleSave}
+                  disabled={isSaving}
+                >
+                  <LinearGradient
+                    colors={['#2D3748', '#1F2937']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.confirmButtonGradient}
+                  >
+                    <Ionicons name="bookmark" size={16} color="#FFFFFF" />
+                    <ThemedText style={styles.confirmButtonText}>{isSaving ? 'Saving...' : 'Save'}</ThemedText>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
           </TouchableOpacity>
-        </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

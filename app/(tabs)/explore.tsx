@@ -6,6 +6,7 @@ import type { ComponentProps } from 'react';
 import React, { useCallback, useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   RefreshControl,
@@ -119,7 +120,7 @@ export default function SavedScreen() {
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: Math.max(24, insets.top + 8) },
+          { paddingTop: Math.max(24, insets.top + 8), paddingBottom: 80 + insets.bottom },
           calculations.length === 0 && styles.contentCentered,
         ]}
         showsVerticalScrollIndicator={false}
@@ -238,60 +239,66 @@ export default function SavedScreen() {
         transparent
         onRequestClose={() => setEditingCalculation(null)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setEditingCalculation(null)}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 0}
         >
-          <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-            <ThemedText style={styles.modalTitle}>Edit Calculation</ThemedText>
-            <ThemedText style={styles.modalSubtitle}>Update the name of your saved calculation</ThemedText>
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setEditingCalculation(null)}
+          >
+            <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
+              <View style={styles.modalHandle} />
+              <ThemedText style={styles.modalTitle}>Edit Calculation</ThemedText>
+              <ThemedText style={styles.modalSubtitle}>Update the name of your saved calculation</ThemedText>
 
-            <TextInput
-              style={styles.editInput}
-              value={editTitle}
-              onChangeText={setEditTitle}
-              placeholder="Enter a new title"
-              placeholderTextColor="#6B7280"
-              selectionColor={GREEN_ACCENT}
-              autoFocus
-              maxLength={50}
-            />
+              <TextInput
+                style={styles.editInput}
+                value={editTitle}
+                onChangeText={setEditTitle}
+                placeholder="Enter a new title"
+                placeholderTextColor="#6B7280"
+                selectionColor={GREEN_ACCENT}
+                autoFocus
+                maxLength={50}
+              />
 
-            {editingCalculation && (
-              <View style={styles.editPreview}>
-                <ThemedText style={styles.previewLabel}>Final Balance</ThemedText>
-                <ThemedText style={styles.previewValue}>
-                  {formatCurrencyFull(editingCalculation.finalBalance)}
-                </ThemedText>
-              </View>
-            )}
+              {editingCalculation && (
+                <View style={styles.editPreview}>
+                  <ThemedText style={styles.previewLabel}>Final Balance</ThemedText>
+                  <ThemedText style={styles.previewValue}>
+                    {formatCurrencyFull(editingCalculation.finalBalance)}
+                  </ThemedText>
+                </View>
+              )}
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  setEditingCalculation(null);
-                  setEditTitle('');
-                }}
-              >
-                <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSaveEdit}>
-                <LinearGradient
-                  colors={['#3B82F6', '#2563EB']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.saveButtonGradient}
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setEditingCalculation(null);
+                    setEditTitle('');
+                  }}
                 >
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                  <ThemedText style={styles.saveButtonText}>Save</ThemedText>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+                  <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveButton} onPress={handleSaveEdit}>
+                  <LinearGradient
+                    colors={['#3B82F6', '#2563EB']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.saveButtonGradient}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                    <ThemedText style={styles.saveButtonText}>Save</ThemedText>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
           </TouchableOpacity>
-        </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

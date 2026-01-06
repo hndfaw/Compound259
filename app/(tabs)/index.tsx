@@ -82,7 +82,7 @@ export default function CalculatorScreen() {
 
   const [initialDeposit, setInitialDeposit] = useState(() => formatWithCommas('10000'));
   const [contribution, setContribution] = useState('0');
-  const [frequency, setFrequency] = useState<FrequencyType>('Annually');
+  const [frequency, setFrequency] = useState<FrequencyType>('Monthly');
   const [yearsOfGrowth, setYearsOfGrowth] = useState('10');
   const [estimatedRate, setEstimatedRate] = useState('7');
   const [totalBalance, setTotalBalance] = useState(0);
@@ -421,7 +421,9 @@ export default function CalculatorScreen() {
             activeOpacity={0.8}
             style={styles.selectorRow}
             onPress={() => {
-              if (Platform.OS === 'ios') Haptics.selectionAsync();
+              if (Platform.OS === 'ios') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
               setShowFrequencyPicker(true);
             }}
           >

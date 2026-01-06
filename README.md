@@ -1,50 +1,64 @@
-# Welcome to your Expo app 👋
+# Compound Interest Calculator
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A React Native mobile app for calculating compound interest with support for regular contributions and multiple compounding frequencies.
 
-## Get started
+## Features
 
-1. Install dependencies
+- Calculate future value of investments with compound interest
+- Support for periodic contributions (annually, semi-annually, quarterly, monthly)
+- Visual breakdown of principal, contributions, and interest earned
+- Save and manage multiple calculations
+- Clean, dark-themed UI
 
-   ```bash
-   npm install
-   ```
+## Tech Stack
 
-2. Start the app
+- React Native
+- Expo
+- TypeScript
+- AsyncStorage for data persistence
+- Expo Router for navigation
 
-   ```bash
-   npx expo start
-   ```
+## Getting Started
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### Installation
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Running the App
 
-## Learn more
+```bash
+npx expo start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Then press:
+- `i` for iOS simulator
+- `a` for Android emulator
+- Scan QR code with Expo Go app for physical device
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Building for Production
 
-## Join the community
+```bash
+# iOS
+npx eas build --platform ios
 
-Join our community of developers creating universal apps.
+# Android
+npx eas build --platform android
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Project Structure
+
+```
+app/
+  (tabs)/
+    index.tsx     # Calculator screen
+    explore.tsx   # Saved calculations screen
+  _layout.tsx     # Root layout
+components/       # Reusable components
+hooks/            # Custom hooks
+```
+
+## License
+
+Private

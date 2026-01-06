@@ -371,7 +371,12 @@ export default function CalculatorScreen() {
                 <TouchableOpacity
                   key={rate}
                   style={[styles.presetChip, active && styles.presetChipActive]}
-                  onPress={() => setEstimatedRate(rate)}
+                  onPress={() => {
+                    if (Platform.OS === 'ios') {
+                      Haptics.selectionAsync();
+                    }
+                    setEstimatedRate(rate);
+                  }}
                   activeOpacity={0.8}
                 >
                   <ThemedText style={[styles.presetText, active && styles.presetTextActive]}>

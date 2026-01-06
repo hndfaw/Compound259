@@ -1,7 +1,24 @@
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
-import React from 'react';
+import * as Haptics from 'expo-haptics';
+import { useNavigation } from '@react-navigation/native';
+import { Platform } from 'react-native';
+import React, { useEffect, useRef } from 'react';
 
 export default function TabLayout() {
+  const navigation = useNavigation();
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('state', () => {
+      if (!isFirstRender.current && Platform.OS === 'ios') {
+        Haptics.selectionAsync();
+      }
+      isFirstRender.current = false;
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">

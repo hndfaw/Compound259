@@ -53,6 +53,60 @@ const CONTRIBUTION_VALUES = [
   15000,
 ];
 
+// Curated initial investment amounts (50 meaningful stops)
+const INITIAL_DEPOSIT_VALUES = [
+  0,
+  500,
+  1000,
+  1500,
+  2000,
+  2500,
+  3000,
+  3500,
+  4000,
+  4500,
+  5000,
+  6000,
+  7000,
+  8000,
+  9000,
+  10000,
+  12000,
+  14000,
+  16000,
+  18000,
+  20000,
+  22500,
+  25000,
+  27500,
+  30000,
+  32500,
+  35000,
+  37500,
+  40000,
+  45000,
+  50000,
+  55000,
+  60000,
+  65000,
+  70000,
+  75000,
+  80000,
+  85000,
+  90000,
+  95000,
+  100000,
+  110000,
+  120000,
+  130000,
+  140000,
+  150000,
+  160000,
+  170000,
+  180000,
+  200000,
+];
+
 const FREQUENCY_PERIODS: Record<FrequencyType, number> = {
   Annually: 1,
   'Semi-annually': 2,
@@ -377,14 +431,15 @@ export default function CalculatorScreen() {
           <Slider
             style={styles.slider}
             minimumValue={0}
-            maximumValue={100000}
-            step={100}
-            value={parseNumber(initialDeposit)}
-            onValueChange={(value) => {
-              const roundedValue = Math.round(value);
-              if (roundedValue !== lastDepositSliderValue.current) {
-                lastDepositSliderValue.current = roundedValue;
-                setInitialDeposit(formatWithCommas(String(roundedValue)));
+            maximumValue={INITIAL_DEPOSIT_VALUES.length - 1}
+            step={1}
+            value={INITIAL_DEPOSIT_VALUES.indexOf(parseNumber(initialDeposit)) !== -1 ? INITIAL_DEPOSIT_VALUES.indexOf(parseNumber(initialDeposit)) : 0}
+            onValueChange={(index) => {
+              const roundedIndex = Math.round(index);
+              const depositValue = INITIAL_DEPOSIT_VALUES[roundedIndex] ?? INITIAL_DEPOSIT_VALUES[0];
+              if (depositValue !== lastDepositSliderValue.current) {
+                lastDepositSliderValue.current = depositValue;
+                setInitialDeposit(formatWithCommas(String(depositValue)));
                 if (Platform.OS === 'ios') {
                   Haptics.selectionAsync();
                 }

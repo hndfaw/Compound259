@@ -4,7 +4,6 @@ import { useFocusEffect } from 'expo-router';
 import type { ComponentProps } from 'react';
 import React, { useCallback, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -16,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
@@ -42,6 +42,7 @@ const formatCurrencyFull = (value: number) =>
 export default function SavedScreen() {
   const { calculations, isLoading, updateCalculation, deleteCalculation, refreshCalculations } = useCalculations();
   const [editingCalculation, setEditingCalculation] = useState<SavedCalculation | null>(null);
+  const [deletingCalculation, setDeletingCalculation] = useState<SavedCalculation | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
@@ -73,33 +74,53 @@ export default function SavedScreen() {
       }
       setEditingCalculation(null);
       setEditTitle('');
+      Toast.show({
+        type: 'success',
+        text1: 'Updated!',
+        text2: 'Calculation has been updated successfully.',
+        position: 'top',
+        visibilityTime: 2000,
+      });
     } catch {
-      Alert.alert('Error', 'Failed to update calculation.');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to update calculation.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
     }
   };
 
   const handleDelete = (calculation: SavedCalculation) => {
-    Alert.alert(
-      'Delete Calculation',
-      `Are you sure you want to delete "${calculation.title}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCalculation(calculation.id);
-              if (Platform.OS === 'ios') {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              }
-            } catch {
-              Alert.alert('Error', 'Failed to delete calculation.');
-            }
-          },
-        },
-      ]
-    );
+    setDeletingCalculation(calculation);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingCalculation) return;
+
+    try {
+      await deleteCalculation(deletingCalculation.id);
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      setDeletingCalculation(null);
+      Toast.show({
+        type: 'success',
+        text1: 'Deleted!',
+        text2: 'Calculation has been deleted.',
+        position: 'top',
+        visibilityTime: 2000,
+      });
+    } catch {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to delete calculation.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+    }
   };
 
   const EmptyState = () => (
@@ -294,6 +315,42 @@ export default function SavedScreen() {
             </TouchableOpacity>
           </TouchableOpacity>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={!!deletingCalculation}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setDeletingCalculation(null)}
+      >
+        <TouchableOpacity
+          style={styles.deleteModalOverlay}
+          activeOpacity={1}
+          onPress={() => setDeletingCalculation(null)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.deleteModalContent}>
+            <View style={styles.deleteIconContainer}>
+              <Ionicons name="trash" size={32} color="#EF4444" />
+            </View>
+            <ThemedText style={styles.deleteModalTitle}>Delete Calculation?</ThemedText>
+            <ThemedText style={styles.deleteModalMessage}>
+              Are you sure you want to delete "{deletingCalculation?.title}"? This action cannot be undone.
+            </ThemedText>
+            <View style={styles.deleteModalActions}>
+              <TouchableOpacity
+                style={styles.deleteCancelButton}
+                onPress={() => setDeletingCalculation(null)}
+              >
+                <ThemedText style={styles.deleteCancelText}>Cancel</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteConfirmButton} onPress={confirmDelete}>
+                <Ionicons name="trash" size={16} color="#FFFFFF" />
+                <ThemedText style={styles.deleteConfirmText}>Delete</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -605,6 +662,77 @@ const styles = StyleSheet.create({
     backgroundColor: '#3B82F6',
   },
   saveButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 6,
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteModalContent: {
+    backgroundColor: '#1F2937',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+  },
+  deleteIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F9FAFB',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  deleteModalMessage: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  deleteModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteCancelButton: {
+    flex: 1,
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#D1D5DB',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  deleteConfirmText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',

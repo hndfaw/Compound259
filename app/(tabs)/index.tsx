@@ -72,7 +72,9 @@ const formatCurrencySmart = (value: number) => {
 const formatWithCommas = (value: string) => {
   const digitsOnly = value.replace(/[^0-9]/g, '');
   if (!digitsOnly) return '';
-  return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  // Remove leading zeros unless it's just "0"
+  const withoutLeadingZeros = digitsOnly.replace(/^0+/, '') || '0';
+  return withoutLeadingZeros.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 };
 
 const formatCurrencyTrim = (value: number) => trimTrailingZeros(formatCurrency(value));
@@ -375,7 +377,11 @@ export default function CalculatorScreen() {
             <TextInput
               style={styles.inputFlex}
               value={estimatedRate}
-              onChangeText={setEstimatedRate}
+              onChangeText={(text) => {
+                const digitsOnly = text.replace(/[^0-9.]/g, '');
+                const withoutLeadingZeros = digitsOnly.replace(/^0+(?=\d)/, '');
+                setEstimatedRate(withoutLeadingZeros);
+              }}
               keyboardType="numeric"
               placeholder="7"
               placeholderTextColor="#4B5563"
@@ -419,7 +425,11 @@ export default function CalculatorScreen() {
             <TextInput
               style={styles.inputFlex}
               value={yearsOfGrowth}
-              onChangeText={setYearsOfGrowth}
+              onChangeText={(text) => {
+                const digitsOnly = text.replace(/[^0-9]/g, '');
+                const withoutLeadingZeros = digitsOnly.replace(/^0+(?=\d)/, '');
+                setYearsOfGrowth(withoutLeadingZeros);
+              }}
               keyboardType="numeric"
               placeholder="10"
               placeholderTextColor="#4B5563"

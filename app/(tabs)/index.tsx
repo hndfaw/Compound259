@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+    InputAccessoryView,
     Keyboard,
     KeyboardAvoidingView,
     Modal,
@@ -83,6 +84,7 @@ const parseNumber = (value: string) => Number(value.replace(/,/g, '')) || 0;
 
 export default function CalculatorScreen() {
   const insets = useSafeAreaInsets();
+  const rateInputRef = useRef<TextInput>(null);
 
   const [initialDeposit, setInitialDeposit] = useState(() => formatWithCommas('5000'));
   const [contribution, setContribution] = useState('0');
@@ -101,6 +103,8 @@ export default function CalculatorScreen() {
 
   const { saveCalculation } = useCalculations();
   const { showTutorial, skipTutorial, resetTutorial } = useTutorial();
+
+  const inputAccessoryViewID = 'ratePresets';
 
   const isSaveDisabled = isSaving || !saveTitle.trim();
 
@@ -375,6 +379,7 @@ export default function CalculatorScreen() {
           </View>
           <View style={styles.inputWithSuffix}>
             <TextInput
+              ref={rateInputRef}
               style={styles.inputFlex}
               value={estimatedRate}
               onChangeText={(text) => {
@@ -387,30 +392,9 @@ export default function CalculatorScreen() {
               placeholderTextColor="#4B5563"
               selectionColor={GREEN_ACCENT}
               maxLength={8}
+              inputAccessoryViewID={Platform.OS === 'ios' ? inputAccessoryViewID : undefined}
             />
             <ThemedText style={styles.inputSuffix}>%</ThemedText>
-          </View>
-          <View style={styles.presetRow}>
-            {RATE_PRESETS.map((rate) => {
-              const active = estimatedRate === rate;
-              return (
-                <TouchableOpacity
-                  key={rate}
-                  style={[styles.presetChip, active && styles.presetChipActive]}
-                  onPress={() => {
-                    if (Platform.OS === 'ios') {
-                      Haptics.selectionAsync();
-                    }
-                    setEstimatedRate(rate);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <ThemedText style={[styles.presetText, active && styles.presetTextActive]}>
-                    {rate}%
-                  </ThemedText>
-                </TouchableOpacity>
-              );
-            })}
           </View>
         </View>
 
@@ -567,6 +551,32 @@ export default function CalculatorScreen() {
         onDismiss={skipTutorial}
         arrow="none"
       />
+
+      {/* Input Accessory View for iOS */}
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID={inputAccessoryViewID}>
+          <View style={styles.inputAccessory}>
+            {RATE_PRESETS.map((rate) => {
+              const active = estimatedRate === rate;
+              return (
+                <TouchableOpacity
+                  key={rate}
+                  style={[styles.accessoryPresetChip, active && styles.accessoryPresetChipActive]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setEstimatedRate(rate);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <ThemedText style={[styles.accessoryPresetText, active && styles.accessoryPresetTextActive]}>
+                    {rate}%
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </InputAccessoryView>
+      )}
     </View>
   );
 }
@@ -945,5 +955,35 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     marginLeft: 6,
+  },
+  // Input Accessory View (iOS keyboard toolbar)
+  inputAccessory: {
+    backgroundColor: '#313338',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: '#1C1C1E',
+  },
+  accessoryPresetChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: '#505053',
+    alignItems: 'center',
+    marginHorizontal: 3,
+  },
+  accessoryPresetChipActive: {
+    backgroundColor: '#10B981',
+  },
+  accessoryPresetText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  accessoryPresetTextActive: {
+    color: '#FFFFFF',
   },
 });

@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    InputAccessoryView,
     Keyboard,
     KeyboardAvoidingView,
     Modal,
@@ -26,8 +26,15 @@ import { useTutorial } from '@/hooks/use-tutorial';
 const GREEN_ACCENT = '#10B981';
 
 const FREQUENCY_OPTIONS = ['Annually', 'Semi-annually', 'Quarterly', 'Monthly'] as const;
-const RATE_PRESETS = ['4', '7', '10', '15', '20'];
 type FrequencyType = (typeof FREQUENCY_OPTIONS)[number];
+
+// Generate contribution values: 0-1000 in 50 steps, then 1000-5000 in 250 steps, then 5000-20000 in 1000 steps
+const CONTRIBUTION_VALUES = [
+  0,
+  ...Array.from({ length: 20 }, (_, i) => (i + 1) * 50), // 50-1000 (50, 100, 150, ..., 1000)
+  ...Array.from({ length: 16 }, (_, i) => 1000 + (i + 1) * 250), // 1250-5000
+  ...Array.from({ length: 15 }, (_, i) => 5000 + (i + 1) * 1000), // 6000-20000
+];
 
 const FREQUENCY_PERIODS: Record<FrequencyType, number> = {
   Annually: 1,
@@ -84,7 +91,10 @@ const parseNumber = (value: string) => Number(value.replace(/,/g, '')) || 0;
 
 export default function CalculatorScreen() {
   const insets = useSafeAreaInsets();
-  const rateInputRef = useRef<TextInput>(null);
+  const lastYearsSliderValue = useRef(7);
+  const lastDepositSliderValue = useRef(5000);
+  const lastRateSliderValue = useRef(10);
+  const lastContributionSliderValue = useRef(0);
 
   const [initialDeposit, setInitialDeposit] = useState(() => formatWithCommas('5000'));
   const [contribution, setContribution] = useState('0');
@@ -103,8 +113,6 @@ export default function CalculatorScreen() {
 
   const { saveCalculation } = useCalculations();
   const { showTutorial, skipTutorial, resetTutorial } = useTutorial();
-
-  const inputAccessoryViewID = 'ratePresets';
 
   const isSaveDisabled = isSaving || !saveTitle.trim();
 
@@ -349,6 +357,26 @@ export default function CalculatorScreen() {
             selectionColor={GREEN_ACCENT}
             maxLength={21}
           />
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={100000}
+            step={100}
+            value={parseNumber(initialDeposit)}
+            onValueChange={(value) => {
+              const roundedValue = Math.round(value);
+              if (roundedValue !== lastDepositSliderValue.current) {
+                lastDepositSliderValue.current = roundedValue;
+                setInitialDeposit(formatWithCommas(String(roundedValue)));
+                if (Platform.OS === 'ios') {
+                  Haptics.selectionAsync();
+                }
+              }
+            }}
+            minimumTrackTintColor={GREEN_ACCENT}
+            maximumTrackTintColor="#374151"
+            thumbTintColor={GREEN_ACCENT}
+          />
         </View>
 
         <View style={styles.inputCard}>
@@ -368,6 +396,27 @@ export default function CalculatorScreen() {
             selectionColor={GREEN_ACCENT}
             maxLength={21}
           />
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={CONTRIBUTION_VALUES.length - 1}
+            step={1}
+            value={CONTRIBUTION_VALUES.indexOf(parseNumber(contribution)) !== -1 ? CONTRIBUTION_VALUES.indexOf(parseNumber(contribution)) : 0}
+            onValueChange={(index) => {
+              const roundedIndex = Math.round(index);
+              const contributionValue = CONTRIBUTION_VALUES[roundedIndex];
+              if (contributionValue !== lastContributionSliderValue.current) {
+                lastContributionSliderValue.current = contributionValue;
+                setContribution(formatWithCommas(String(contributionValue)));
+                if (Platform.OS === 'ios') {
+                  Haptics.selectionAsync();
+                }
+              }
+            }}
+            minimumTrackTintColor={GREEN_ACCENT}
+            maximumTrackTintColor="#374151"
+            thumbTintColor={GREEN_ACCENT}
+          />
         </View>
 
         <View style={styles.inputCard}>
@@ -379,7 +428,6 @@ export default function CalculatorScreen() {
           </View>
           <View style={styles.inputWithSuffix}>
             <TextInput
-              ref={rateInputRef}
               style={styles.inputFlex}
               value={estimatedRate}
               onChangeText={(text) => {
@@ -392,10 +440,29 @@ export default function CalculatorScreen() {
               placeholderTextColor="#4B5563"
               selectionColor={GREEN_ACCENT}
               maxLength={8}
-              inputAccessoryViewID={Platform.OS === 'ios' ? inputAccessoryViewID : undefined}
             />
             <ThemedText style={styles.inputSuffix}>%</ThemedText>
           </View>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={30}
+            step={0.1}
+            value={Number(estimatedRate) || 0}
+            onValueChange={(value) => {
+              const roundedValue = Math.round(value * 10) / 10;
+              if (roundedValue !== lastRateSliderValue.current) {
+                lastRateSliderValue.current = roundedValue;
+                setEstimatedRate(String(roundedValue));
+                if (Platform.OS === 'ios') {
+                  Haptics.selectionAsync();
+                }
+              }
+            }}
+            minimumTrackTintColor={GREEN_ACCENT}
+            maximumTrackTintColor="#374151"
+            thumbTintColor={GREEN_ACCENT}
+          />
         </View>
 
         <View style={styles.inputCard}>
@@ -422,6 +489,26 @@ export default function CalculatorScreen() {
             />
             <ThemedText style={styles.inputSuffix}>years</ThemedText>
           </View>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={50}
+            step={1}
+            value={Number(yearsOfGrowth) || 0}
+            onValueChange={(value) => {
+              const roundedValue = Math.round(value);
+              if (roundedValue !== lastYearsSliderValue.current) {
+                lastYearsSliderValue.current = roundedValue;
+                setYearsOfGrowth(String(roundedValue));
+                if (Platform.OS === 'ios') {
+                  Haptics.selectionAsync();
+                }
+              }
+            }}
+            minimumTrackTintColor={GREEN_ACCENT}
+            maximumTrackTintColor="#374151"
+            thumbTintColor={GREEN_ACCENT}
+          />
         </View>
 
         <View style={styles.inputCard}>
@@ -552,31 +639,6 @@ export default function CalculatorScreen() {
         arrow="none"
       />
 
-      {/* Input Accessory View for iOS */}
-      {Platform.OS === 'ios' && (
-        <InputAccessoryView nativeID={inputAccessoryViewID}>
-          <View style={styles.inputAccessory}>
-            {RATE_PRESETS.map((rate) => {
-              const active = estimatedRate === rate;
-              return (
-                <TouchableOpacity
-                  key={rate}
-                  style={[styles.accessoryPresetChip, active && styles.accessoryPresetChipActive]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setEstimatedRate(rate);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <ThemedText style={[styles.accessoryPresetText, active && styles.accessoryPresetTextActive]}>
-                    {rate}%
-                  </ThemedText>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </InputAccessoryView>
-      )}
     </View>
   );
 }
@@ -729,6 +791,11 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 16,
     fontWeight: '500',
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+    marginTop: 8,
   },
   presetRow: {
     flexDirection: 'row',
@@ -964,6 +1031,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-evenly',
     paddingHorizontal: 8,
     paddingVertical: 8,
+  },
+  inputAccessoryBorder: {
     borderTopWidth: 0.5,
     borderTopColor: '#1C1C1E',
   },

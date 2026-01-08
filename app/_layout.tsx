@@ -1,6 +1,7 @@
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import 'react-native-reanimated';
 
 const CustomDarkTheme = {
@@ -16,6 +17,49 @@ const CustomDarkTheme = {
   },
 };
 
+const toastConfig = {
+  success: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{
+        borderLeftColor: '#10B981',
+        backgroundColor: '#111827',
+        borderLeftWidth: 5,
+      }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#F9FAFB',
+      }}
+      text2Style={{
+        fontSize: 13,
+        color: '#9CA3AF',
+      }}
+    />
+  ),
+  error: (props: any) => (
+    <ErrorToast
+      {...props}
+      style={{
+        borderLeftColor: '#EF4444',
+        backgroundColor: '#111827',
+        borderLeftWidth: 5,
+      }}
+      contentContainerStyle={{ paddingHorizontal: 15 }}
+      text1Style={{
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#F9FAFB',
+      }}
+      text2Style={{
+        fontSize: 13,
+        color: '#9CA3AF',
+      }}
+    />
+  ),
+};
+
 export default function RootLayout() {
   return (
     <ThemeProvider value={CustomDarkTheme}>
@@ -23,6 +67,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
       </Stack>
       <StatusBar style="light" />
+      <Toast config={toastConfig} />
     </ThemeProvider>
   );
 }

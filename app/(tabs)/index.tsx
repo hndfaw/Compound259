@@ -3,7 +3,6 @@ import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Alert,
     Keyboard,
     KeyboardAvoidingView,
     Modal,
@@ -15,6 +14,7 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
@@ -180,7 +180,13 @@ export default function CalculatorScreen() {
 
   const handleSave = async () => {
     if (!saveTitle.trim()) {
-      Alert.alert('Title Required', 'Please enter a title for your calculation.');
+      Toast.show({
+        type: 'error',
+        text1: 'Title Required',
+        text2: 'Please enter a title for your calculation.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
       return;
     }
 
@@ -209,9 +215,22 @@ export default function CalculatorScreen() {
 
       setShowSaveModal(false);
       setSaveTitle('');
-      Alert.alert('Saved!', 'Your calculation has been saved successfully.');
+
+      Toast.show({
+        type: 'success',
+        text1: 'Saved!',
+        text2: 'Your calculation has been saved successfully.',
+        position: 'top',
+        visibilityTime: 2000,
+      });
     } catch {
-      Alert.alert('Error', 'Failed to save calculation. Please try again.');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to save calculation. Please try again.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
     } finally {
       setIsSaving(false);
     }

@@ -3,16 +3,16 @@ import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Keyboard,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -80,11 +80,11 @@ const parseNumber = (value: string) => Number(value.replace(/,/g, '')) || 0;
 export default function CalculatorScreen() {
   const insets = useSafeAreaInsets();
 
-  const [initialDeposit, setInitialDeposit] = useState(() => formatWithCommas('10000'));
+  const [initialDeposit, setInitialDeposit] = useState(() => formatWithCommas('5000'));
   const [contribution, setContribution] = useState('0');
   const [frequency, setFrequency] = useState<FrequencyType>('Monthly');
-  const [yearsOfGrowth, setYearsOfGrowth] = useState('10');
-  const [estimatedRate, setEstimatedRate] = useState('7');
+  const [yearsOfGrowth, setYearsOfGrowth] = useState('7');
+  const [estimatedRate, setEstimatedRate] = useState('10');
   const [totalBalance, setTotalBalance] = useState(0);
   const [interestEarned, setInterestEarned] = useState(0);
   const [useCompactBalance, setUseCompactBalance] = useState(false);

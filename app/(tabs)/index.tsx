@@ -1,18 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import Slider from '@react-native-community/slider';
+import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Keyboard,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -431,26 +431,31 @@ export default function CalculatorScreen() {
               style={styles.inputFlex}
               value={estimatedRate}
               onChangeText={(text) => {
-                const digitsOnly = text.replace(/[^0-9.]/g, '');
+                const digitsOnly = text.replace(/[^0-9]/g, '');
+                if (!digitsOnly) {
+                  setEstimatedRate('');
+                  return;
+                }
                 const withoutLeadingZeros = digitsOnly.replace(/^0+(?=\d)/, '');
-                setEstimatedRate(withoutLeadingZeros);
+                const clamped = Math.min(Number(withoutLeadingZeros), 50);
+                setEstimatedRate(String(clamped));
               }}
               keyboardType="numeric"
-              placeholder="7"
+              placeholder="10"
               placeholderTextColor="#4B5563"
               selectionColor={GREEN_ACCENT}
-              maxLength={8}
+              maxLength={2}
             />
             <ThemedText style={styles.inputSuffix}>%</ThemedText>
           </View>
           <Slider
             style={styles.slider}
             minimumValue={0}
-            maximumValue={30}
-            step={0.1}
+            maximumValue={50}
+            step={1}
             value={Number(estimatedRate) || 0}
             onValueChange={(value) => {
-              const roundedValue = Math.round(value * 10) / 10;
+              const roundedValue = Math.round(value);
               if (roundedValue !== lastRateSliderValue.current) {
                 lastRateSliderValue.current = roundedValue;
                 setEstimatedRate(String(roundedValue));

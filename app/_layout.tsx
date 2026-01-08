@@ -22,9 +22,16 @@ const toastConfig = {
     <BaseToast
       {...props}
       style={{
-        borderLeftColor: '#10B981',
         backgroundColor: '#111827',
-        borderLeftWidth: 5,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderLeftColor: '#10B981',
+        borderRightColor: '#10B981',
+        borderTopColor: '#10B981',
+        borderBottomColor: '#10B981',
+        borderRadius: 12,
       }}
       contentContainerStyle={{ paddingHorizontal: 15 }}
       text1Style={{
@@ -42,9 +49,16 @@ const toastConfig = {
     <ErrorToast
       {...props}
       style={{
-        borderLeftColor: '#EF4444',
         backgroundColor: '#111827',
-        borderLeftWidth: 5,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderLeftColor: '#EF4444',
+        borderRightColor: '#EF4444',
+        borderTopColor: '#EF4444',
+        borderBottomColor: '#EF4444',
+        borderRadius: 12,
       }}
       contentContainerStyle={{ paddingHorizontal: 15 }}
       text1Style={{

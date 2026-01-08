@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 
@@ -15,6 +15,7 @@ type ScreenHeaderProps = {
   subtitle?: string;
   accent?: string;
   iconSize?: number;
+  onHelpPress?: () => void;
 };
 
 const hexToRgba = (hex: string, alpha: number) => {
@@ -27,16 +28,21 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-export function ScreenHeader({ icon, title, subtitle, accent = DEFAULT_ACCENT, iconSize = 22 }: ScreenHeaderProps) {
+export function ScreenHeader({ icon, title, subtitle, accent = DEFAULT_ACCENT, iconSize = 22, onHelpPress }: ScreenHeaderProps) {
   const badgeColor = hexToRgba(accent, 0.16);
 
   return (
     <View style={styles.headerGroup}>
       <View style={styles.headerRow}>
-        <View style={[styles.headerBadge, { backgroundColor: badgeColor }]}> 
+        <View style={[styles.headerBadge, { backgroundColor: badgeColor }]}>
           <Ionicons name={icon} size={iconSize} color={accent} />
         </View>
         <ThemedText style={styles.headerTitle}>{title}</ThemedText>
+        {onHelpPress && (
+          <TouchableOpacity style={styles.helpButton} onPress={onHelpPress} activeOpacity={0.7}>
+            <Ionicons name="help-circle-outline" size={24} color="#9CA3AF" />
+          </TouchableOpacity>
+        )}
       </View>
       {subtitle ? <ThemedText style={styles.headerSubtitle}>{subtitle}</ThemedText> : null}
     </View>
@@ -72,5 +78,9 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     lineHeight: 22,
     fontWeight: '500',
+  },
+  helpButton: {
+    marginLeft: 'auto',
+    padding: 4,
   },
 });

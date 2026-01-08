@@ -18,7 +18,9 @@ import Toast from 'react-native-toast-message';
 
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
+import { TutorialTooltip } from '@/components/tutorial-tooltip';
 import { useCalculations } from '@/hooks/use-calculations';
+import { useTutorial } from '@/hooks/use-tutorial';
 
 const GREEN_ACCENT = '#10B981';
 
@@ -96,6 +98,7 @@ export default function CalculatorScreen() {
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
 
   const { saveCalculation } = useCalculations();
+  const { showTutorial, skipTutorial, resetTutorial } = useTutorial();
 
   const isSaveDisabled = isSaving || !saveTitle.trim();
 
@@ -259,6 +262,7 @@ export default function CalculatorScreen() {
           accent={GREEN_ACCENT}
           title="Compound"
           subtitle="Watch your money grow over time"
+          onHelpPress={resetTutorial}
         />
 
         {/* Result Card */}
@@ -545,6 +549,14 @@ export default function CalculatorScreen() {
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Tutorial Tooltip */}
+      <TutorialTooltip
+        visible={showTutorial}
+        message="Enter your initial investment, set your interest rate and time period, then watch your money grow! Tap the bookmark button to save different scenarios."
+        onDismiss={skipTutorial}
+        arrow="none"
+      />
     </View>
   );
 }

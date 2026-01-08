@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   resultCard: {
     borderRadius: 20,
     padding: 20,
-    marginBottom: 24,
+    marginBottom: 32,
     backgroundColor: '#065F46',
   },
   resultHeader: {
@@ -811,18 +811,21 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   saveButtonWrapper: {
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
+    marginTop: 24,
   },
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#2D3748',
+    paddingVertical: 14,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#1F2937',
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: '#9CA3AF',
     fontSize: 15,
     fontWeight: '600',
     marginLeft: 8,

@@ -28,12 +28,29 @@ const GREEN_ACCENT = '#10B981';
 const FREQUENCY_OPTIONS = ['Annually', 'Semi-annually', 'Quarterly', 'Monthly'] as const;
 type FrequencyType = (typeof FREQUENCY_OPTIONS)[number];
 
-// Generate contribution values: 0-1000 in 50 steps, then 1000-5000 in 250 steps, then 5000-20000 in 1000 steps
+// Curated contribution amounts (no 50-step increments)
 const CONTRIBUTION_VALUES = [
   0,
-  ...Array.from({ length: 20 }, (_, i) => (i + 1) * 50), // 50-1000 (50, 100, 150, ..., 1000)
-  ...Array.from({ length: 16 }, (_, i) => 1000 + (i + 1) * 250), // 1250-5000
-  ...Array.from({ length: 15 }, (_, i) => 5000 + (i + 1) * 1000), // 6000-20000
+  100,
+  250,
+  500,
+  750,
+  1000,
+  1500,
+  2000,
+  2500,
+  3000,
+  3500,
+  4000,
+  4500,
+  5000,
+  6000,
+  7000,
+  8000,
+  9000,
+  10000,
+  12500,
+  15000,
 ];
 
 const FREQUENCY_PERIODS: Record<FrequencyType, number> = {

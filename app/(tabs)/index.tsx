@@ -280,26 +280,23 @@ export default function CalculatorScreen() {
 
           <View style={styles.breakdownRow}>
             <View style={styles.breakdownItem}>
-              <View style={[styles.breakdownDot, { backgroundColor: '#34D399' }]} />
               <View style={styles.breakdownTexts}>
                 <ThemedText style={styles.breakdownLabel}>Principal</ThemedText>
-                <ThemedText style={styles.breakdownValue}>{formatCurrencySmart(parseNumber(initialDeposit))}</ThemedText>
+                <ThemedText style={[styles.breakdownValue, { color: '#34D399' }]}>{formatCurrencySmart(parseNumber(initialDeposit))}</ThemedText>
               </View>
             </View>
             {contributionRatio > 0 && (
               <View style={styles.breakdownItem}>
-                <View style={[styles.breakdownDot, { backgroundColor: '#60A5FA' }]} />
                 <View style={styles.breakdownTexts}>
                   <ThemedText style={styles.breakdownLabel}>Contributions</ThemedText>
-                  <ThemedText style={styles.breakdownValue}>{formatCurrencySmart(totalContributionsValue)}</ThemedText>
+                  <ThemedText style={[styles.breakdownValue, { color: '#60A5FA' }]}>{formatCurrencySmart(totalContributionsValue)}</ThemedText>
                 </View>
               </View>
             )}
             <View style={styles.breakdownItem}>
-              <View style={[styles.breakdownDot, { backgroundColor: '#F59E0B' }]} />
               <View style={styles.breakdownTexts}>
                 <ThemedText style={styles.breakdownLabel}>Interest</ThemedText>
-                <ThemedText style={styles.breakdownValueHighlight}>{formatCurrencySmart(interestEarned)}</ThemedText>
+                <ThemedText style={[styles.breakdownValue, { color: '#F59E0B' }]}>{formatCurrencySmart(interestEarned)}</ThemedText>
               </View>
             </View>
           </View>
@@ -615,15 +612,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   breakdownItem: {
-    flexDirection: 'row',
     alignItems: 'flex-start',
-  },
-  breakdownDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 4,
-    marginRight: 6,
   },
   breakdownTexts: {
     flexDirection: 'column',
@@ -635,12 +624,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   breakdownValue: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  breakdownValueHighlight: {
-    color: '#F59E0B',
     fontSize: 14,
     fontWeight: '600',
   },

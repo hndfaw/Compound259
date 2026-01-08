@@ -1,8 +1,8 @@
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 import 'react-native-reanimated';
+import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
 const CustomDarkTheme = {
   ...DarkTheme,
@@ -81,7 +81,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
       </Stack>
       <StatusBar style="light" />
-      <Toast config={toastConfig} />
+      <Toast config={toastConfig} topOffset={60} />
     </ThemeProvider>
   );
 }

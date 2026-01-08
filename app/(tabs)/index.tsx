@@ -319,21 +319,21 @@ export default function CalculatorScreen() {
             <View style={styles.breakdownItem}>
               <View style={styles.breakdownTexts}>
                 <ThemedText style={styles.breakdownLabel}>Principal</ThemedText>
-                <ThemedText style={[styles.breakdownValue, { color: '#34D399' }]}>{formatCurrencySmart(parseNumber(initialDeposit))}</ThemedText>
+                <ThemedText style={[styles.breakdownValue, { color: '#60A5FA' }]}>{formatCurrencySmart(parseNumber(initialDeposit))}</ThemedText>
               </View>
             </View>
             {contributionRatio > 0 && (
               <View style={styles.breakdownItem}>
                 <View style={styles.breakdownTexts}>
                   <ThemedText style={styles.breakdownLabel}>Contributions</ThemedText>
-                  <ThemedText style={[styles.breakdownValue, { color: '#60A5FA' }]}>{formatCurrencySmart(totalContributionsValue)}</ThemedText>
+                  <ThemedText style={[styles.breakdownValue, { color: '#F59E0B' }]}>{formatCurrencySmart(totalContributionsValue)}</ThemedText>
                 </View>
               </View>
             )}
             <View style={styles.breakdownItem}>
               <View style={styles.breakdownTexts}>
                 <ThemedText style={styles.breakdownLabel}>Interest</ThemedText>
-                <ThemedText style={[styles.breakdownValue, { color: '#F59E0B' }]}>{formatCurrencySmart(interestEarned)}</ThemedText>
+                <ThemedText style={[styles.breakdownValue, { color: '#34D399' }]}>{formatCurrencySmart(interestEarned)}</ThemedText>
               </View>
             </View>
           </View>
@@ -707,13 +707,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   progressPrincipal: {
-    backgroundColor: '#34D399',
-  },
-  progressContribution: {
     backgroundColor: '#60A5FA',
   },
-  progressInterest: {
+  progressContribution: {
     backgroundColor: '#F59E0B',
+  },
+  progressInterest: {
+    backgroundColor: '#34D399',
   },
   breakdownRow: {
     flexDirection: 'row',

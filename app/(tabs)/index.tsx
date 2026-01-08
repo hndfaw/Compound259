@@ -486,16 +486,6 @@ export default function CalculatorScreen() {
                 ))}
               </Picker>
             </View>
-            <View style={styles.pickerActions}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setShowFrequencyPicker(false)}>
-                <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmButton} onPress={() => setShowFrequencyPicker(false)}>
-                <View style={styles.confirmButtonGradient}>
-                  <ThemedText style={styles.confirmButtonText}>Done</ThemedText>
-                </View>
-              </TouchableOpacity>
-            </View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>

@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
+import * as StoreReview from 'expo-store-review';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
@@ -182,7 +184,7 @@ export default function CalculatorScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
 
-  const { saveCalculation } = useCalculations();
+  const { saveCalculation, calculations } = useCalculations();
   const { showTutorial, skipTutorial, resetTutorial } = useTutorial();
 
   const isSaveDisabled = isSaving || !saveTitle.trim();
@@ -311,6 +313,21 @@ export default function CalculatorScreen() {
         position: 'top',
         visibilityTime: 2000,
       });
+
+      // Request review after 3rd save (non-intrusive)
+      const newCount = calculations.length + 1;
+      if (newCount >= 3) {
+        const hasRequestedReview = await AsyncStorage.getItem('hasRequestedReview');
+        if (!hasRequestedReview) {
+          const isAvailable = await StoreReview.isAvailableAsync();
+          if (isAvailable) {
+            await AsyncStorage.setItem('hasRequestedReview', 'true');
+            setTimeout(() => {
+              StoreReview.requestReview();
+            }, 1500);
+          }
+        }
+      }
     } catch {
       Toast.show({
         type: 'error',

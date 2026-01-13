@@ -276,24 +276,21 @@ export default function SavedScreen() {
                   style={[styles.actionButton, styles.shareButton]}
                   onPress={() => handleShare(calculation)}
                 >
-                  <Ionicons name="share-outline" size={15} color="#60A5FA" />
-                  <ThemedText style={styles.shareText}>Share</ThemedText>
+                  <Ionicons name="share-outline" size={18} color="#60A5FA" />
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={[styles.actionButton, styles.editButton]}
                   onPress={() => handleEdit(calculation)}
                 >
-                  <Ionicons name="create-outline" size={15} color={GREEN_ACCENT} />
-                  <ThemedText style={styles.editText}>Edit</ThemedText>
+                  <Ionicons name="create-outline" size={18} color={GREEN_ACCENT} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={[styles.actionButton, styles.deleteButton]}
                   onPress={() => handleDelete(calculation)}
                 >
-                  <Ionicons name="trash-outline" size={15} color="#F87171" />
-                  <ThemedText style={styles.deleteText}>Delete</ThemedText>
+                  <Ionicons name="trash-outline" size={18} color="#F87171" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -439,37 +436,34 @@ export default function SavedScreen() {
                   <ThemedText style={styles.balanceValue}>{formatCurrencyFull(sharingCalculation.finalBalance)}</ThemedText>
                 </View>
 
-                <View style={styles.detailsGrid}>
-                  <View style={[styles.detailColumn, styles.detailColumnSpacing]}>
-                    <DetailRow
-                      icon="card-outline"
-                      label="Initial Deposit"
-                      value={formatCurrency(sharingCalculation.initialDeposit)}
-                    />
-                    <DetailRow
-                      icon="wallet-outline"
-                      label="Contributions"
-                      value={`${formatCurrency(sharingCalculation.contributionAmount)} ${sharingCalculation.frequency.toLowerCase()}`}
-                    />
-                    <DetailRow
-                      icon="trending-up-outline"
-                      label="Rate of Return"
-                      value={`${sharingCalculation.rateOfReturn}% per year`}
-                    />
+                <View style={styles.shareDetailsGrid}>
+                  <View style={styles.shareDetailRow}>
+                    <View style={styles.shareDetailItem}>
+                      <ThemedText style={styles.shareDetailLabel}>Initial</ThemedText>
+                      <ThemedText style={styles.shareDetailValue}>{formatCurrency(sharingCalculation.initialDeposit)}</ThemedText>
+                    </View>
+                    <View style={styles.shareDetailItem}>
+                      <ThemedText style={styles.shareDetailLabel}>Monthly</ThemedText>
+                      <ThemedText style={styles.shareDetailValue}>{formatCurrency(sharingCalculation.contributionAmount)}</ThemedText>
+                    </View>
+                    <View style={styles.shareDetailItem}>
+                      <ThemedText style={styles.shareDetailLabel}>Years</ThemedText>
+                      <ThemedText style={styles.shareDetailValue}>{sharingCalculation.timePeriod}</ThemedText>
+                    </View>
                   </View>
-                  <View style={styles.detailColumn}>
-                    <DetailRow
-                      icon="cash-outline"
-                      label="Interest Earned"
-                      value={formatCurrency(sharingCalculation.interestEarned)}
-                      highlight
-                    />
-                    <DetailRow
-                      icon="calendar-outline"
-                      label="Time Period"
-                      value={`${sharingCalculation.timePeriod} year${sharingCalculation.timePeriod !== 1 ? 's' : ''}`}
-                    />
-                    <DetailRow icon="repeat-outline" label="Frequency" value={sharingCalculation.frequency} />
+                  <View style={styles.shareDetailRow}>
+                    <View style={styles.shareDetailItem}>
+                      <ThemedText style={styles.shareDetailLabel}>Rate</ThemedText>
+                      <ThemedText style={styles.shareDetailValue}>{sharingCalculation.rateOfReturn}%</ThemedText>
+                    </View>
+                    <View style={styles.shareDetailItem}>
+                      <ThemedText style={styles.shareDetailLabel}>Frequency</ThemedText>
+                      <ThemedText style={styles.shareDetailValue}>{sharingCalculation.frequency}</ThemedText>
+                    </View>
+                    <View style={styles.shareDetailItem}>
+                      <ThemedText style={styles.shareDetailLabel}>Interest</ThemedText>
+                      <ThemedText style={[styles.shareDetailValue, styles.shareDetailHighlight]}>{formatCurrency(sharingCalculation.interestEarned)}</ThemedText>
+                    </View>
                   </View>
                 </View>
 
@@ -678,42 +672,24 @@ const styles = StyleSheet.create({
   },
   cardActions: {
     flexDirection: 'row',
-    gap: 10,
+    justifyContent: 'flex-end',
+    gap: 8,
   },
   actionButton: {
-    flex: 1,
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  editButton: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
   shareButton: {
     backgroundColor: 'rgba(96, 165, 250, 0.12)',
   },
+  editButton: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  },
   deleteButton: {
     backgroundColor: 'rgba(248, 113, 113, 0.12)',
-  },
-  shareText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#60A5FA',
-    marginLeft: 5,
-  },
-  editText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: GREEN_ACCENT,
-    marginLeft: 5,
-  },
-  deleteText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#F87171',
-    marginLeft: 5,
   },
   modalOverlay: {
     flex: 1,
@@ -903,6 +879,33 @@ const styles = StyleSheet.create({
     padding: 18,
     borderWidth: 2,
     borderColor: '#374151',
+  },
+  shareDetailsGrid: {
+    marginBottom: 16,
+  },
+  shareDetailRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  shareDetailItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  shareDetailLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  shareDetailValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#E5E7EB',
+  },
+  shareDetailHighlight: {
+    color: '#34D399',
   },
   shareFooter: {
     marginTop: 4,

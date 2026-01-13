@@ -471,46 +471,6 @@ export default function CalculatorScreen() {
         <View style={styles.inputCard}>
           <View style={styles.inputHeader}>
             <View style={styles.inputIconBadge}>
-              <Ionicons name="add-circle-outline" size={16} color={GREEN_ACCENT} />
-            </View>
-            <ThemedText style={styles.inputLabel}>Contribution (per period)</ThemedText>
-          </View>
-          <TextInput
-            style={styles.input}
-            value={contribution}
-            onChangeText={(text) => setContribution(formatWithCommas(text))}
-            keyboardType="numeric"
-            placeholder="500"
-            placeholderTextColor="#4B5563"
-            selectionColor={GREEN_ACCENT}
-            maxLength={21}
-          />
-          <Slider
-            style={styles.slider}
-            minimumValue={0}
-            maximumValue={CONTRIBUTION_VALUES.length - 1}
-            step={1}
-            value={CONTRIBUTION_VALUES.indexOf(parseNumber(contribution)) !== -1 ? CONTRIBUTION_VALUES.indexOf(parseNumber(contribution)) : 0}
-            onValueChange={(index) => {
-              const roundedIndex = Math.round(index);
-              const contributionValue = CONTRIBUTION_VALUES[roundedIndex];
-              if (contributionValue !== lastContributionSliderValue.current) {
-                lastContributionSliderValue.current = contributionValue;
-                setContribution(formatWithCommas(String(contributionValue)));
-                if (Platform.OS === 'ios') {
-                  Haptics.selectionAsync();
-                }
-              }
-            }}
-            minimumTrackTintColor={GREEN_ACCENT}
-            maximumTrackTintColor="#374151"
-            thumbTintColor={GREEN_ACCENT}
-          />
-        </View>
-
-        <View style={styles.inputCard}>
-          <View style={styles.inputHeader}>
-            <View style={styles.inputIconBadge}>
               <Ionicons name="analytics-outline" size={16} color={GREEN_ACCENT} />
             </View>
             <ThemedText style={styles.inputLabel}>Interest Rate</ThemedText>
@@ -594,6 +554,46 @@ export default function CalculatorScreen() {
               if (roundedValue !== lastYearsSliderValue.current) {
                 lastYearsSliderValue.current = roundedValue;
                 setYearsOfGrowth(String(roundedValue));
+                if (Platform.OS === 'ios') {
+                  Haptics.selectionAsync();
+                }
+              }
+            }}
+            minimumTrackTintColor={GREEN_ACCENT}
+            maximumTrackTintColor="#374151"
+            thumbTintColor={GREEN_ACCENT}
+          />
+        </View>
+
+        <View style={styles.inputCard}>
+          <View style={styles.inputHeader}>
+            <View style={styles.inputIconBadge}>
+              <Ionicons name="add-circle-outline" size={16} color={GREEN_ACCENT} />
+            </View>
+            <ThemedText style={styles.inputLabel}>Contribution (per period)</ThemedText>
+          </View>
+          <TextInput
+            style={styles.input}
+            value={contribution}
+            onChangeText={(text) => setContribution(formatWithCommas(text))}
+            keyboardType="numeric"
+            placeholder="500"
+            placeholderTextColor="#4B5563"
+            selectionColor={GREEN_ACCENT}
+            maxLength={21}
+          />
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={CONTRIBUTION_VALUES.length - 1}
+            step={1}
+            value={CONTRIBUTION_VALUES.indexOf(parseNumber(contribution)) !== -1 ? CONTRIBUTION_VALUES.indexOf(parseNumber(contribution)) : 0}
+            onValueChange={(index) => {
+              const roundedIndex = Math.round(index);
+              const contributionValue = CONTRIBUTION_VALUES[roundedIndex];
+              if (contributionValue !== lastContributionSliderValue.current) {
+                lastContributionSliderValue.current = contributionValue;
+                setContribution(formatWithCommas(String(contributionValue)));
                 if (Platform.OS === 'ios') {
                   Haptics.selectionAsync();
                 }

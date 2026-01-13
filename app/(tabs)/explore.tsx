@@ -11,6 +11,7 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -163,6 +164,19 @@ export default function SavedScreen() {
     }
   };
 
+  const handleShareApp = async () => {
+    try {
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      await Share.share({
+        message: 'Check out Compound259 - a beautiful compound interest calculator to visualize your investment growth!\n\nhttps://apps.apple.com/us/app/compound259/id6757372216',
+      });
+    } catch {
+      // User cancelled or error
+    }
+  };
+
   const EmptyState = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconContainer}>
@@ -211,11 +225,12 @@ export default function SavedScreen() {
         {calculations.length === 0 && !isLoading ? (
           <EmptyState />
         ) : (
-          calculations.map((calculation, index) => (
-            <View
-              key={calculation.id}
-              style={[styles.card, index === calculations.length - 1 && styles.lastCard]}
-            >
+          <>
+            {calculations.map((calculation, index) => (
+              <View
+                key={calculation.id}
+                style={[styles.card, index === calculations.length - 1 && styles.lastCard]}
+              >
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleContainer}>
                   <ThemedText style={styles.cardTitle} numberOfLines={2}>
@@ -293,8 +308,21 @@ export default function SavedScreen() {
                   <Ionicons name="trash-outline" size={18} color="#F87171" />
                 </TouchableOpacity>
               </View>
-            </View>
-          ))
+              </View>
+            ))}
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.shareAppCard}
+              onPress={handleShareApp}
+            >
+              <View style={styles.shareAppContent}>
+                <Ionicons name="heart-outline" size={18} color="#F472B6" />
+                <ThemedText style={styles.shareAppText}>Enjoying the app? Share with friends</ThemedText>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+            </TouchableOpacity>
+          </>
         )}
       </ScrollView>
 
@@ -690,6 +718,28 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: 'rgba(248, 113, 113, 0.12)',
+  },
+  shareAppCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+  },
+  shareAppContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  shareAppText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#9CA3AF',
   },
   modalOverlay: {
     flex: 1,

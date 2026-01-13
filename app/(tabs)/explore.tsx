@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import type { ComponentProps } from 'react';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -16,6 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
+import ViewShot from 'react-native-view-shot';
 
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
@@ -43,8 +46,10 @@ export default function SavedScreen() {
   const { calculations, isLoading, updateCalculation, deleteCalculation, refreshCalculations } = useCalculations();
   const [editingCalculation, setEditingCalculation] = useState<SavedCalculation | null>(null);
   const [deletingCalculation, setDeletingCalculation] = useState<SavedCalculation | null>(null);
+  const [sharingCalculation, setSharingCalculation] = useState<SavedCalculation | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const viewShotRef = useRef<ViewShot>(null);
   const insets = useSafeAreaInsets();
 
   useFocusEffect(
@@ -117,6 +122,41 @@ export default function SavedScreen() {
         type: 'error',
         text1: 'Error',
         text2: 'Failed to delete calculation.',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+    }
+  };
+
+  const handleShare = (calculation: SavedCalculation) => {
+    setSharingCalculation(calculation);
+  };
+
+  const captureAndShare = async () => {
+    if (!viewShotRef.current || !sharingCalculation) return;
+
+    try {
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+
+      const uri = await viewShotRef.current.capture?.();
+      if (!uri) {
+        throw new Error('Failed to capture image');
+      }
+
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Share your investment growth',
+      });
+
+      setSharingCalculation(null);
+    } catch {
+      setSharingCalculation(null);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to share calculation.',
         position: 'top',
         visibilityTime: 3000,
       });
@@ -231,6 +271,14 @@ export default function SavedScreen() {
               </View>
 
               <View style={styles.cardActions}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={[styles.actionButton, styles.shareButton]}
+                  onPress={() => handleShare(calculation)}
+                >
+                  <Ionicons name="share-outline" size={15} color="#60A5FA" />
+                  <ThemedText style={styles.shareText}>Share</ThemedText>
+                </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={[styles.actionButton, styles.editButton]}
@@ -351,6 +399,97 @@ export default function SavedScreen() {
             </View>
           </TouchableOpacity>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Share Modal */}
+      <Modal
+        visible={!!sharingCalculation}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setSharingCalculation(null)}
+        onShow={() => {
+          setTimeout(captureAndShare, 300);
+        }}
+      >
+        <View style={styles.shareModalOverlay}>
+          <ViewShot
+            ref={viewShotRef}
+            options={{ format: 'png', quality: 1, result: 'tmpfile' }}
+            style={styles.shareCardContainer}
+          >
+            {sharingCalculation && (
+              <View style={styles.shareCard}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleContainer}>
+                    <ThemedText style={styles.cardTitle} numberOfLines={2}>
+                      {sharingCalculation.title}
+                    </ThemedText>
+                    <ThemedText style={styles.cardDate}>Saved on {sharingCalculation.date}</ThemedText>
+                  </View>
+                  <View style={styles.returnBadge}>
+                    <Ionicons name="trending-up" size={11} color="#FFFFFF" />
+                    <ThemedText style={styles.returnText}>
+                      +{((sharingCalculation.interestEarned / Math.max(sharingCalculation.initialDeposit + sharingCalculation.contributions, 1)) * 100).toFixed(0)}%
+                    </ThemedText>
+                  </View>
+                </View>
+
+                <View style={styles.balanceSection}>
+                  <ThemedText style={styles.balanceLabel}>FINAL BALANCE</ThemedText>
+                  <ThemedText style={styles.balanceValue}>{formatCurrencyFull(sharingCalculation.finalBalance)}</ThemedText>
+                </View>
+
+                <View style={styles.detailsGrid}>
+                  <View style={[styles.detailColumn, styles.detailColumnSpacing]}>
+                    <DetailRow
+                      icon="card-outline"
+                      label="Initial Deposit"
+                      value={formatCurrency(sharingCalculation.initialDeposit)}
+                    />
+                    <DetailRow
+                      icon="wallet-outline"
+                      label="Contributions"
+                      value={`${formatCurrency(sharingCalculation.contributionAmount)} ${sharingCalculation.frequency.toLowerCase()}`}
+                    />
+                    <DetailRow
+                      icon="trending-up-outline"
+                      label="Rate of Return"
+                      value={`${sharingCalculation.rateOfReturn}% per year`}
+                    />
+                  </View>
+                  <View style={styles.detailColumn}>
+                    <DetailRow
+                      icon="cash-outline"
+                      label="Interest Earned"
+                      value={formatCurrency(sharingCalculation.interestEarned)}
+                      highlight
+                    />
+                    <DetailRow
+                      icon="calendar-outline"
+                      label="Time Period"
+                      value={`${sharingCalculation.timePeriod} year${sharingCalculation.timePeriod !== 1 ? 's' : ''}`}
+                    />
+                    <DetailRow icon="repeat-outline" label="Frequency" value={sharingCalculation.frequency} />
+                  </View>
+                </View>
+
+                <View style={styles.shareFooter}>
+                  <View style={styles.shareFooterLeft}>
+                    <Image
+                      source={require('@/assets/images/icon.png')}
+                      style={styles.appIcon}
+                    />
+                    <ThemedText style={styles.appNameText}>Compound259</ThemedText>
+                  </View>
+                  <View style={styles.appStoreBadge}>
+                    <Ionicons name="logo-apple" size={11} color="#FFFFFF" />
+                    <ThemedText style={styles.appStoreText}>App Store</ThemedText>
+                  </View>
+                </View>
+              </View>
+            )}
+          </ViewShot>
+        </View>
       </Modal>
     </View>
   );
@@ -552,8 +691,17 @@ const styles = StyleSheet.create({
   editButton: {
     backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
+  shareButton: {
+    backgroundColor: 'rgba(96, 165, 250, 0.12)',
+  },
   deleteButton: {
     backgroundColor: 'rgba(248, 113, 113, 0.12)',
+  },
+  shareText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#60A5FA',
+    marginLeft: 5,
   },
   editText: {
     fontSize: 13,
@@ -737,5 +885,62 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     marginLeft: 6,
+  },
+  shareModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  shareCardContainer: {
+    width: '100%',
+    maxWidth: 360,
+  },
+  shareCard: {
+    backgroundColor: '#111827',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 2,
+    borderColor: '#374151',
+  },
+  shareFooter: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#1F2937',
+  },
+  shareFooterLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  appIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  appNameText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#E5E7EB',
+    letterSpacing: 0.3,
+  },
+  appStoreBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#000000',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
+  },
+  appStoreText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

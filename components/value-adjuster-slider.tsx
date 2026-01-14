@@ -18,7 +18,7 @@ export function ValueAdjusterSlider({
   max = 100000,
   accentColor = '#10B981',
 }: ValueAdjusterSliderProps) {
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const clearAutoIncrement = () => {
     if (intervalRef.current) {

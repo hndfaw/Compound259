@@ -1,990 +1,415 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import type { ComponentProps } from 'react';
 import React, { useCallback, useRef, useState } from 'react';
-import {
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  Share,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Modal, Platform, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import ViewShot from 'react-native-view-shot';
 
-import { ScreenHeader } from '@/components/screen-header';
-import { ThemedText } from '@/components/themed-text';
+import { GlassCard } from '@/components/ui/glass-card';
+import { GradientButton } from '@/components/ui/gradient-button';
+import { Icon, IconName } from '@/components/ui/icon';
+import { Screen } from '@/components/ui/screen';
+import { Dialog, Sheet } from '@/components/ui/sheet';
+import { Font, Theme } from '@/constants/tokens';
 import { SavedCalculation, useCalculations } from '@/hooks/use-calculations';
-import { formatFull, formatWhole } from '@/utils/format';
-import { AppColors } from '@/constants/tokens';
+import { useTheme } from '@/hooks/use-theme';
+import { money } from '@/utils/finance';
 
-const GREEN_ACCENT = AppColors.accent;
-type IoniconName = ComponentProps<typeof Ionicons>['name'];
+const compute = (c: SavedCalculation) => {
+  const invested = Math.max(c.initialDeposit + c.contributions, 1);
+  const ret = Math.round((c.interestEarned / invested) * 100);
+  return { ret };
+};
 
-// Aliased to the shared helpers so the existing call sites read unchanged.
-const formatCurrency = formatWhole;
-const formatCurrencyFull = formatFull;
+const haptic = () => {
+  if (Platform.OS === 'ios') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+};
 
 export default function SavedScreen() {
+  const { theme } = useTheme();
+  const s = React.useMemo(() => makeStyles(theme), [theme]);
   const { calculations, isLoading, updateCalculation, deleteCalculation, refreshCalculations } = useCalculations();
-  const [editingCalculation, setEditingCalculation] = useState<SavedCalculation | null>(null);
-  const [deletingCalculation, setDeletingCalculation] = useState<SavedCalculation | null>(null);
-  const [sharingCalculation, setSharingCalculation] = useState<SavedCalculation | null>(null);
+
+  const [editing, setEditing] = useState<SavedCalculation | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [deleting, setDeleting] = useState<SavedCalculation | null>(null);
+  const [sharing, setSharing] = useState<SavedCalculation | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const viewShotRef = useRef<ViewShot>(null);
-  const insets = useSafeAreaInsets();
 
   useFocusEffect(
     useCallback(() => {
       refreshCalculations();
-    }, [refreshCalculations])
+    }, [refreshCalculations]),
   );
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
+  const onRefresh = async () => {
+    setRefreshing(true);
     await refreshCalculations();
-    setIsRefreshing(false);
+    setRefreshing(false);
   };
 
-  const handleEdit = (calculation: SavedCalculation) => {
-    setEditingCalculation(calculation);
-    setEditTitle(calculation.title);
+  const startEdit = (c: SavedCalculation) => {
+    setEditing(c);
+    setEditTitle(c.title);
   };
 
-  const handleSaveEdit = async () => {
-    if (!editingCalculation || !editTitle.trim()) return;
-
+  const saveEdit = async () => {
+    if (!editing || !editTitle.trim()) return;
     try {
-      await updateCalculation(editingCalculation.id, { title: editTitle.trim() });
-      if (Platform.OS === 'ios') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-      setEditingCalculation(null);
+      await updateCalculation(editing.id, { title: editTitle.trim() });
+      haptic();
+      setEditing(null);
       setEditTitle('');
-      Toast.show({
-        type: 'success',
-        text1: 'Updated!',
-        text2: 'Calculation has been updated successfully.',
-        position: 'top',
-        visibilityTime: 2000,
-      });
+      Toast.show({ type: 'success', text1: 'Updated', position: 'top', visibilityTime: 2000 });
     } catch {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to update calculation.',
-        position: 'top',
-        visibilityTime: 3000,
-      });
+      Toast.show({ type: 'error', text1: 'Failed to update', position: 'top', visibilityTime: 2500 });
     }
-  };
-
-  const handleDelete = (calculation: SavedCalculation) => {
-    setDeletingCalculation(calculation);
   };
 
   const confirmDelete = async () => {
-    if (!deletingCalculation) return;
-
+    if (!deleting) return;
     try {
-      await deleteCalculation(deletingCalculation.id);
-      if (Platform.OS === 'ios') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-      setDeletingCalculation(null);
-      Toast.show({
-        type: 'success',
-        text1: 'Deleted!',
-        text2: 'Calculation has been deleted.',
-        position: 'top',
-        visibilityTime: 2000,
-      });
+      await deleteCalculation(deleting.id);
+      haptic();
+      setDeleting(null);
+      Toast.show({ type: 'success', text1: 'Deleted', position: 'top', visibilityTime: 2000 });
     } catch {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to delete calculation.',
-        position: 'top',
-        visibilityTime: 3000,
-      });
+      Toast.show({ type: 'error', text1: 'Failed to delete', position: 'top', visibilityTime: 2500 });
     }
-  };
-
-  const handleShare = (calculation: SavedCalculation) => {
-    setSharingCalculation(calculation);
   };
 
   const captureAndShare = async () => {
-    if (!viewShotRef.current || !sharingCalculation) return;
-
+    if (!viewShotRef.current || !sharing) return;
     try {
-      if (Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-
+      if (Platform.OS === 'ios') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const uri = await viewShotRef.current.capture?.();
-      if (!uri) {
-        throw new Error('Failed to capture image');
-      }
-
-      await Sharing.shareAsync(uri, {
-        mimeType: 'image/png',
-        dialogTitle: 'Share your investment growth',
-      });
-
-      setSharingCalculation(null);
+      if (!uri) throw new Error('capture failed');
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share your investment growth' });
+      setSharing(null);
     } catch {
-      setSharingCalculation(null);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to share calculation.',
-        position: 'top',
-        visibilityTime: 3000,
-      });
+      setSharing(null);
+      Toast.show({ type: 'error', text1: 'Failed to share', position: 'top', visibilityTime: 2500 });
     }
   };
 
-  const handleShareApp = async () => {
+  const shareApp = async () => {
     try {
-      if (Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+      if (Platform.OS === 'ios') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await Share.share({
-        message: 'Check out Compound259 - a beautiful compound interest calculator to visualize your investment growth!\n\nhttps://apps.apple.com/us/app/compound259/id6757372216',
+        message:
+          'Check out Compound259 - a beautiful compound interest calculator to visualize your investment growth!\n\nhttps://apps.apple.com/us/app/compound259/id6757372216',
       });
     } catch {
-      // User cancelled or error
+      /* cancelled */
     }
   };
 
-  const EmptyState = () => (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIconContainer}>
-        <Ionicons name="bookmark-outline" size={44} color="#4B5563" />
-      </View>
-      <ThemedText style={styles.emptyTitle}>No Saved Calculations</ThemedText>
-      <ThemedText style={styles.emptySubtitle}>
-        Your saved calculations will appear here.{"\n"}Go to Calculator to create one.
-      </ThemedText>
-    </View>
-  );
+  const count = calculations.length;
+  const subtitle = isLoading
+    ? 'Loading…'
+    : count === 0
+      ? 'No saved calculations yet'
+      : `${count} saved calculation${count !== 1 ? 's' : ''}`;
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: Math.max(52, insets.top + 28), paddingBottom: 80 + insets.bottom },
-          calculations.length === 0 && styles.contentCentered,
-        ]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={GREEN_ACCENT}
-            colors={[GREEN_ACCENT]}
-          />
-        }
-      >
-        <ScreenHeader
-          icon="bookmark"
-          iconSize={18}
-          accent={GREEN_ACCENT}
-          title="Saved Records"
-          subtitle={
-            isLoading
-              ? 'Loading...'
-              : calculations.length === 0
-                ? 'No saved calculations yet'
-                : `${calculations.length} saved calculation${calculations.length !== 1 ? 's' : ''}`
-          }
-        />
-
-        {calculations.length === 0 && !isLoading ? (
-          <EmptyState />
-        ) : (
-          <>
-            {calculations.map((calculation, index) => (
-              <View
-                key={calculation.id}
-                style={[styles.card, index === calculations.length - 1 && styles.lastCard]}
-              >
-              <View style={styles.cardHeader}>
-                <View style={styles.cardTitleContainer}>
-                  <ThemedText style={styles.cardTitle} numberOfLines={2}>
-                    {calculation.title}
-                  </ThemedText>
-                  <ThemedText style={styles.cardDate}>Saved on {calculation.date}</ThemedText>
-                </View>
-                <View style={styles.returnBadge}>
-                  <Ionicons name="trending-up" size={11} color="#FFFFFF" />
-                  <ThemedText style={styles.returnText}>
-                    +{((calculation.interestEarned / Math.max(calculation.initialDeposit + calculation.contributions, 1)) * 100).toFixed(0)}%
-                  </ThemedText>
-                </View>
-              </View>
-
-              <View style={styles.balanceSection}>
-                <ThemedText style={styles.balanceLabel}>FINAL BALANCE</ThemedText>
-                <ThemedText style={styles.balanceValue}>{formatCurrencyFull(calculation.finalBalance)}</ThemedText>
-              </View>
-
-              <View style={styles.detailsGrid}>
-                <View style={[styles.detailColumn, styles.detailColumnSpacing]}>
-                  <DetailRow
-                    icon="card-outline"
-                    label="Initial Deposit"
-                    value={formatCurrency(calculation.initialDeposit)}
-                  />
-                  <DetailRow
-                    icon="wallet-outline"
-                    label="Contributions"
-                    value={`${formatCurrency(calculation.contributionAmount)} ${calculation.frequency.toLowerCase()}`}
-                  />
-                  <DetailRow
-                    icon="trending-up-outline"
-                    label="Rate of Return"
-                    value={`${calculation.rateOfReturn}% per year`}
-                  />
-                </View>
-                <View style={styles.detailColumn}>
-                  <DetailRow
-                    icon="cash-outline"
-                    label="Interest Earned"
-                    value={formatCurrency(calculation.interestEarned)}
-                    highlight
-                  />
-                  <DetailRow
-                    icon="calendar-outline"
-                    label="Time Period"
-                    value={`${calculation.timePeriod} year${calculation.timePeriod !== 1 ? 's' : ''}`}
-                  />
-                  <DetailRow icon="repeat-outline" label="Frequency" value={calculation.frequency} />
-                </View>
-              </View>
-
-              <View style={styles.cardActions}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[styles.actionButton, styles.shareButton]}
-                  onPress={() => handleShare(calculation)}
-                >
-                  <Ionicons name="share-outline" size={18} color="#60A5FA" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[styles.actionButton, styles.editButton]}
-                  onPress={() => handleEdit(calculation)}
-                >
-                  <Ionicons name="create-outline" size={18} color={GREEN_ACCENT} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[styles.actionButton, styles.deleteButton]}
-                  onPress={() => handleDelete(calculation)}
-                >
-                  <Ionicons name="trash-outline" size={18} color="#F87171" />
-                </TouchableOpacity>
-              </View>
-              </View>
-            ))}
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.shareAppCard}
-              onPress={handleShareApp}
-            >
-              <View style={styles.shareAppContent}>
-                <Ionicons name="heart-outline" size={18} color="#F472B6" />
-                <ThemedText style={styles.shareAppText}>Enjoying the app? Share with friends</ThemedText>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
-            </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
-
-      {/* Edit Modal */}
-      <Modal
-        visible={!!editingCalculation}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setEditingCalculation(null)}
-      >
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 0}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setEditingCalculation(null)}
-          >
-            <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
-              <View style={styles.modalHandle} />
-              <ThemedText style={styles.modalTitle}>Edit Calculation</ThemedText>
-              <ThemedText style={styles.modalSubtitle}>Update the name of your saved calculation</ThemedText>
-
-              <TextInput
-                style={styles.editInput}
-                value={editTitle}
-                onChangeText={setEditTitle}
-                placeholder="Enter a new title"
-                placeholderTextColor="#6B7280"
-                selectionColor={GREEN_ACCENT}
-                autoFocus
-                maxLength={50}
-              />
-
-              {editingCalculation && (
-                <View style={styles.editPreview}>
-                  <ThemedText style={styles.previewLabel}>Final Balance</ThemedText>
-                  <ThemedText style={styles.previewValue}>
-                    {formatCurrencyFull(editingCalculation.finalBalance)}
-                  </ThemedText>
-                </View>
-              )}
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => {
-                    setEditingCalculation(null);
-                    setEditTitle('');
-                  }}
-                >
-                  <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.saveButton} onPress={handleSaveEdit}>
-                  <View style={styles.saveButtonGradient}>
-                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                    <ThemedText style={styles.saveButtonText}>Save</ThemedText>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        visible={!!deletingCalculation}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setDeletingCalculation(null)}
-      >
-        <TouchableOpacity
-          style={styles.deleteModalOverlay}
-          activeOpacity={1}
-          onPress={() => setDeletingCalculation(null)}
-        >
-          <TouchableOpacity activeOpacity={1} style={styles.deleteModalContent}>
-            <View style={styles.deleteIconContainer}>
-              <Ionicons name="trash" size={32} color="#EF4444" />
-            </View>
-            <ThemedText style={styles.deleteModalTitle}>Delete Calculation?</ThemedText>
-            <ThemedText style={styles.deleteModalMessage}>
-              Are you sure you want to delete &quot;{deletingCalculation?.title}&quot;? This action cannot be undone.
-            </ThemedText>
-            <View style={styles.deleteModalActions}>
-              <TouchableOpacity
-                style={styles.deleteCancelButton}
-                onPress={() => setDeletingCalculation(null)}
-              >
-                <ThemedText style={styles.deleteCancelText}>Cancel</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteConfirmButton} onPress={confirmDelete}>
-                <Ionicons name="trash" size={16} color="#FFFFFF" />
-                <ThemedText style={styles.deleteConfirmText}>Delete</ThemedText>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Share Modal */}
-      <Modal
-        visible={!!sharingCalculation}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setSharingCalculation(null)}
-        onShow={() => {
-          setTimeout(captureAndShare, 300);
-        }}
-      >
-        <View style={styles.shareModalOverlay}>
-          <ViewShot
-            ref={viewShotRef}
-            options={{ format: 'png', quality: 1, result: 'tmpfile' }}
-            style={styles.shareCardContainer}
-          >
-            {sharingCalculation && (
-              <View style={styles.shareCard}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardTitleContainer}>
-                    <ThemedText style={styles.cardTitle} numberOfLines={2}>
-                      {sharingCalculation.title}
-                    </ThemedText>
-                    <ThemedText style={styles.cardDate}>Saved on {sharingCalculation.date}</ThemedText>
-                  </View>
-                  <View style={styles.returnBadge}>
-                    <Ionicons name="trending-up" size={11} color="#FFFFFF" />
-                    <ThemedText style={styles.returnText}>
-                      +{((sharingCalculation.interestEarned / Math.max(sharingCalculation.initialDeposit + sharingCalculation.contributions, 1)) * 100).toFixed(0)}%
-                    </ThemedText>
-                  </View>
-                </View>
-
-                <View style={styles.balanceSection}>
-                  <ThemedText style={styles.balanceLabel}>FINAL BALANCE</ThemedText>
-                  <ThemedText style={styles.balanceValue}>{formatCurrencyFull(sharingCalculation.finalBalance)}</ThemedText>
-                </View>
-
-                <View style={styles.shareDetailsGrid}>
-                  <View style={styles.shareDetailRow}>
-                    <View style={styles.shareDetailItem}>
-                      <ThemedText style={styles.shareDetailLabel}>Initial</ThemedText>
-                      <ThemedText style={styles.shareDetailValue}>{formatCurrency(sharingCalculation.initialDeposit)}</ThemedText>
-                    </View>
-                    <View style={styles.shareDetailItem}>
-                      <ThemedText style={styles.shareDetailLabel}>Per Period</ThemedText>
-                      <ThemedText style={styles.shareDetailValue}>{formatCurrency(sharingCalculation.contributionAmount)}</ThemedText>
-                    </View>
-                    <View style={styles.shareDetailItem}>
-                      <ThemedText style={styles.shareDetailLabel}>Years</ThemedText>
-                      <ThemedText style={styles.shareDetailValue}>{sharingCalculation.timePeriod}</ThemedText>
-                    </View>
-                  </View>
-                  <View style={styles.shareDetailRow}>
-                    <View style={styles.shareDetailItem}>
-                      <ThemedText style={styles.shareDetailLabel}>Rate</ThemedText>
-                      <ThemedText style={styles.shareDetailValue}>{sharingCalculation.rateOfReturn}%</ThemedText>
-                    </View>
-                    <View style={styles.shareDetailItem}>
-                      <ThemedText style={styles.shareDetailLabel}>Frequency</ThemedText>
-                      <ThemedText style={styles.shareDetailValue}>{sharingCalculation.frequency}</ThemedText>
-                    </View>
-                    <View style={styles.shareDetailItem}>
-                      <ThemedText style={styles.shareDetailLabel}>Interest</ThemedText>
-                      <ThemedText style={[styles.shareDetailValue, styles.shareDetailHighlight]}>{formatCurrency(sharingCalculation.interestEarned)}</ThemedText>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.shareFooter}>
-                  <View style={styles.shareFooterLeft}>
-                    <Image
-                      source={require('@/assets/images/icon.png')}
-                      style={styles.appIcon}
-                    />
-                    <ThemedText style={styles.appNameText}>Compound259</ThemedText>
-                  </View>
-                  <View style={styles.appStoreBadge}>
-                    <Ionicons name="logo-apple" size={11} color="#FFFFFF" />
-                    <ThemedText style={styles.appStoreText}>App Store</ThemedText>
-                  </View>
-                </View>
-              </View>
-            )}
-          </ViewShot>
+    <Screen title="Saved Records" subtitle={subtitle} refreshing={refreshing} onRefresh={onRefresh}>
+      {count === 0 && !isLoading ? (
+        <View style={s.empty}>
+          <View style={s.emptyIcon}>
+            <Icon name="bookmark" size={38} color={theme.ter} strokeWidth={1.8} />
+          </View>
+          <Text style={s.emptyTitle}>No saved calculations</Text>
+          <Text style={s.emptySubtitle}>Your saved calculations will appear here. Go to the Calculator to create one.</Text>
         </View>
-      </Modal>
-    </View>
+      ) : (
+        <>
+          {calculations.map((c) => {
+            const { ret } = compute(c);
+            return (
+              <GlassCard key={c.id} style={s.card} radius={20}>
+                <View style={s.cardHeader}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={s.cardTitle} numberOfLines={2}>{c.title}</Text>
+                    <Text style={s.cardDate}>Saved on {c.date}</Text>
+                  </View>
+                  <View style={s.retBadge}>
+                    <Text style={s.retText}>+{ret}%</Text>
+                  </View>
+                </View>
+
+                <GradientButton style={s.balancePanel} radius={14} contentStyle={s.balancePanelInner}>
+                  <View style={{ width: '100%' }}>
+                    <Text style={[s.balanceLabel, { color: theme.btnFg }]}>FINAL BALANCE</Text>
+                    <Text style={[s.balanceValue, { color: theme.btnFg }]}>{money(c.finalBalance)}</Text>
+                  </View>
+                </GradientButton>
+
+                <View style={s.detailsGrid}>
+                  <View style={s.detailCol}>
+                    <Detail theme={theme} label="Initial deposit" value={money(c.initialDeposit)} />
+                    <Detail theme={theme} label="Contributions" value={`${money(c.contributionAmount)} ${c.frequency.toLowerCase()}`} />
+                    <Detail theme={theme} label="Rate of return" value={`${c.rateOfReturn}% per year`} />
+                  </View>
+                  <View style={s.detailCol}>
+                    <Detail theme={theme} label="Interest earned" value={money(c.interestEarned)} highlight />
+                    <Detail theme={theme} label="Time period" value={`${c.timePeriod} year${c.timePeriod !== 1 ? 's' : ''}`} />
+                    <Detail theme={theme} label="Frequency" value={c.frequency} />
+                  </View>
+                </View>
+
+                <View style={s.actions}>
+                  <ActionButton theme={theme} icon="share" label="Share" onPress={() => setSharing(c)} />
+                  <ActionButton theme={theme} icon="edit" label="Edit" onPress={() => startEdit(c)} />
+                  <ActionButton theme={theme} icon="trash" label="Delete" danger onPress={() => setDeleting(c)} />
+                </View>
+              </GlassCard>
+            );
+          })}
+
+          <TouchableOpacity activeOpacity={0.85} onPress={shareApp}>
+            <GlassCard style={s.shareAppCard} radius={14}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Icon name="heart" size={18} color="#F472B6" strokeWidth={1.9} />
+                <Text style={s.shareAppText}>Enjoying the app? Share with friends</Text>
+              </View>
+              <Icon name="chevronRight" size={16} color={theme.ter} strokeWidth={2} />
+            </GlassCard>
+          </TouchableOpacity>
+        </>
+      )}
+
+      {/* Edit sheet */}
+      <Sheet visible={!!editing} onClose={() => setEditing(null)}>
+        <Text style={s.sheetTitle}>Edit calculation</Text>
+        <Text style={s.sheetSubtitle}>Update the name of your saved calculation</Text>
+        <TextInput
+          value={editTitle}
+          onChangeText={setEditTitle}
+          placeholder="Enter a new title"
+          placeholderTextColor={theme.ter}
+          selectionColor={theme.accent}
+          autoFocus
+          maxLength={50}
+          style={[s.textInput, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder, color: theme.text }]}
+        />
+        <View style={[s.sheetActions, { marginTop: 18 }]}>
+          <TouchableOpacity onPress={() => setEditing(null)} activeOpacity={0.85} style={[s.cancelBtn, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder }]}>
+            <Text style={[s.cancelText, { color: theme.mutedCol }]}>Cancel</Text>
+          </TouchableOpacity>
+          <GradientButton onPress={saveEdit} style={{ flex: 1.5 }} radius={12} contentStyle={{ paddingVertical: 14 }}>
+            <Text style={[s.confirmText, { color: theme.btnFg }]}>Save changes</Text>
+          </GradientButton>
+        </View>
+      </Sheet>
+
+      {/* Delete dialog */}
+      <Dialog visible={!!deleting} onClose={() => setDeleting(null)}>
+        <View style={{ alignItems: 'center' }}>
+          <View style={[s.deleteIcon, { backgroundColor: theme.dangerBg }]}>
+            <Icon name="trash" size={28} color={theme.danger} strokeWidth={2} />
+          </View>
+          <Text style={s.deleteTitle}>Delete calculation?</Text>
+          <Text style={s.deleteMsg}>Delete “{deleting?.title}”? This action cannot be undone.</Text>
+          <View style={[s.sheetActions, { width: '100%' }]}>
+            <TouchableOpacity onPress={() => setDeleting(null)} activeOpacity={0.85} style={[s.cancelBtn, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder }]}>
+              <Text style={[s.cancelText, { color: theme.mutedCol }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={confirmDelete} activeOpacity={0.85} style={[s.deleteConfirm, { backgroundColor: theme.danger }]}>
+              <Text style={s.deleteConfirmText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Dialog>
+
+      {/* Share overlay */}
+      <ShareOverlay
+        calc={sharing}
+        viewShotRef={viewShotRef}
+        onShare={captureAndShare}
+        onClose={() => setSharing(null)}
+      />
+    </Screen>
   );
 }
 
-type DetailRowProps = {
-  icon: IoniconName;
-  label: string;
-  value: string;
-  highlight?: boolean;
-};
-
-function DetailRow({ icon, label, value, highlight }: DetailRowProps) {
+function Detail({ theme, label, value, highlight }: { theme: Theme; label: string; value: string; highlight?: boolean }) {
   return (
-    <View style={styles.detailRow}>
-      <View style={[styles.detailIconBadge, highlight && styles.detailIconBadgeHighlight]}>
-        <Ionicons name={icon} size={13} color={highlight ? '#34D399' : GREEN_ACCENT} />
-      </View>
-      <View style={styles.detailTexts}>
-        <ThemedText style={styles.detailLabel}>{label}</ThemedText>
-        <ThemedText style={[styles.detailValue, highlight && styles.detailValueHighlight]}>{value}</ThemedText>
-      </View>
+    <View style={{ gap: 2 }}>
+      <Text style={{ fontFamily: Font.bodySemi, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.4, color: theme.ter }}>{label}</Text>
+      <Text style={{ fontFamily: Font.bodySemi, fontSize: 13, color: highlight ? theme.accent : theme.text }}>{value}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#030712',
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
-    paddingTop: 16,
-  },
-  contentCentered: {
-    flexGrow: 1,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 80,
-  },
-  emptyIconContainer: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#111827',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F9FAFB',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  card: {
-    backgroundColor: '#111827',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-  },
-  lastCard: {
-    marginBottom: 0,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-  cardTitleContainer: {
-    flex: 1,
-    marginRight: 10,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#F9FAFB',
-    marginBottom: 3,
-    lineHeight: 20,
-  },
-  cardDate: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  returnBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  returnText: {
-    color: GREEN_ACCENT,
-    fontSize: 11,
-    fontWeight: '700',
-    marginLeft: 3,
-  },
-  balanceSection: {
-    backgroundColor: '#065F46',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  balanceLabel: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 4,
-  },
-  balanceValue: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-    lineHeight: 34,
-  },
-  detailsGrid: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  detailColumn: {
-    flex: 1,
-  },
-  detailColumnSpacing: {
-    marginRight: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  detailIconBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-    marginRight: 8,
-  },
-  detailIconBadgeHighlight: {
-    backgroundColor: 'rgba(52, 211, 153, 0.15)',
-  },
-  detailTexts: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 10,
-    color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 2,
-    fontWeight: '600',
-  },
-  detailValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#E5E7EB',
-  },
-  detailValueHighlight: {
-    color: '#34D399',
-  },
-  cardActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shareButton: {
-    backgroundColor: 'rgba(96, 165, 250, 0.12)',
-  },
-  editButton: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-  },
-  deleteButton: {
-    backgroundColor: 'rgba(248, 113, 113, 0.12)',
-  },
-  shareAppCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#0F172A',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-  },
-  shareAppContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  shareAppText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#9CA3AF',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#1F2937',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    paddingTop: 12,
-  },
-  modalHandle: {
-    width: 36,
-    height: 4,
-    backgroundColor: '#4B5563',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F9FAFB',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  editInput: {
-    backgroundColor: '#111827',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#F9FAFB',
-    fontWeight: '500',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  editPreview: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  previewLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  previewValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: GREEN_ACCENT,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#374151',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  saveButton: {
-    flex: 1.5,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  saveButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    backgroundColor: '#3B82F6',
-  },
-  saveButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 6,
-  },
-  deleteModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  deleteModalContent: {
-    backgroundColor: '#1F2937',
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-    alignItems: 'center',
-  },
-  deleteIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  deleteModalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#F9FAFB',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  deleteModalMessage: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  deleteModalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  deleteCancelButton: {
-    flex: 1,
-    backgroundColor: '#374151',
-    borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#D1D5DB',
-  },
-  deleteConfirmButton: {
-    flex: 1,
-    backgroundColor: '#EF4444',
-    borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  deleteConfirmText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 6,
-  },
-  shareModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  shareCardContainer: {
-    width: '100%',
-    maxWidth: 360,
-  },
-  shareCard: {
-    backgroundColor: '#111827',
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 2,
-    borderColor: '#374151',
-  },
-  shareDetailsGrid: {
-    marginBottom: 16,
-  },
-  shareDetailRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  shareDetailItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  shareDetailLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  shareDetailValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#E5E7EB',
-  },
-  shareDetailHighlight: {
-    color: '#34D399',
-  },
-  shareFooter: {
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#1F2937',
-  },
-  shareFooterLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  appIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  appNameText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#E5E7EB',
-    letterSpacing: 0.3,
-  },
-  appStoreBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#000000',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    gap: 4,
-  },
-  appStoreText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
+function ActionButton({ theme, icon, label, danger, onPress }: { theme: Theme; icon: IconName; label: string; danger?: boolean; onPress: () => void }) {
+  const color = danger ? theme.danger : theme.mutedCol;
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        paddingVertical: 9,
+        borderRadius: 11,
+        backgroundColor: danger ? theme.dangerBg : theme.mutedBg,
+        borderWidth: 1,
+        borderColor: danger ? theme.dangerBorder : theme.mutedBorder,
+      }}
+    >
+      <Icon name={icon} size={15} color={color} strokeWidth={1.9} />
+      <Text style={{ fontFamily: Font.bodySemi, fontSize: 12.5, color }}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** Theme-independent share card (brand image) rendered into a capturable view. */
+function ShareOverlay({
+  calc,
+  viewShotRef,
+  onShare,
+  onClose,
+}: {
+  calc: SavedCalculation | null;
+  viewShotRef: React.RefObject<ViewShot | null>;
+  onShare: () => void;
+  onClose: () => void;
+}) {
+  const { theme } = useTheme();
+  const ret = calc ? compute(calc).ret : 0;
+  return (
+    <Modal visible={!!calc} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={sh.overlay}>
+        <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1, result: 'tmpfile' }} style={{ width: '100%', maxWidth: 330 }}>
+          {calc && (
+            <View style={sh.card}>
+              <View style={sh.header}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={sh.title}>{calc.title}</Text>
+                  <Text style={sh.date}>Saved on {calc.date}</Text>
+                </View>
+                <View style={sh.retBadge}>
+                  <Text style={sh.retText}>+{ret}%</Text>
+                </View>
+              </View>
+              <View style={sh.balancePanel}>
+                <Text style={sh.balanceLabel}>FINAL BALANCE</Text>
+                <Text style={sh.balanceValue}>{money(calc.finalBalance)}</Text>
+              </View>
+              <View style={sh.grid}>
+                <ShareStat label="Initial" value={money(calc.initialDeposit)} />
+                <ShareStat label="Per period" value={money(calc.contributionAmount)} />
+                <ShareStat label="Years" value={`${calc.timePeriod}`} />
+                <ShareStat label="Rate" value={`${calc.rateOfReturn}%`} />
+                <ShareStat label="Frequency" value={calc.frequency} />
+                <ShareStat label="Interest" value={money(calc.interestEarned)} highlight />
+              </View>
+              <View style={sh.footer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={sh.logo}>
+                    <Icon name="trending" size={13} color="#04140D" strokeWidth={3} />
+                  </View>
+                  <Text style={sh.brand}>Compound259</Text>
+                </View>
+                <View style={sh.appStore}>
+                  <Text style={sh.appStoreText}> App Store</Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </ViewShot>
+        <TouchableOpacity onPress={onShare} activeOpacity={0.85} style={{ width: '100%', maxWidth: 330, marginTop: 14 }}>
+          <GradientButton onPress={onShare} radius={14}>
+            <Text style={{ fontFamily: Font.bodyBold, fontSize: 15, color: theme.btnFg }}>Share image</Text>
+          </GradientButton>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={{ marginTop: 10 }}>
+          <Text style={{ fontFamily: Font.bodySemi, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>Close</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+}
+
+function ShareStat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <View style={{ width: '33.33%', alignItems: 'center', paddingVertical: 7 }}>
+      <Text style={sh.statLabel}>{label}</Text>
+      <Text style={[sh.statValue, highlight && { color: '#8DF7C6' }]}>{value}</Text>
+    </View>
+  );
+}
+
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    empty: { alignItems: 'center', paddingHorizontal: 30, paddingVertical: 70 },
+    emptyIcon: {
+      width: 84,
+      height: 84,
+      borderRadius: 42,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 18,
+    },
+    emptyTitle: { fontFamily: Font.bodyBold, fontSize: 17, color: theme.text, marginBottom: 8 },
+    emptySubtitle: { fontFamily: Font.body, fontSize: 14, color: theme.sub, textAlign: 'center', lineHeight: 21 },
+    card: { padding: 16, marginBottom: 13 },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    cardTitle: { fontFamily: Font.bodyBold, fontSize: 15, color: theme.text },
+    cardDate: { fontFamily: Font.body, fontSize: 12, color: theme.ter, marginTop: 3 },
+    retBadge: { backgroundColor: theme.accentSoft, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 8 },
+    retText: { fontFamily: Font.displayBold, fontSize: 12, color: theme.accent },
+    balancePanel: { marginVertical: 14 },
+    balancePanelInner: { alignItems: 'flex-start', justifyContent: 'flex-start', paddingVertical: 13, paddingHorizontal: 15 },
+    balanceLabel: { fontFamily: Font.bodyBold, fontSize: 10, letterSpacing: 1, opacity: 0.7 },
+    balanceValue: { fontFamily: Font.displayBold, fontSize: 25, marginTop: 2 },
+    detailsGrid: { flexDirection: 'row', gap: 16, marginBottom: 15 },
+    detailCol: { flex: 1, gap: 11 },
+    actions: { flexDirection: 'row', gap: 8 },
+    shareAppCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, marginTop: 7 },
+    shareAppText: { fontFamily: Font.bodySemi, fontSize: 13, color: theme.sub },
+    sheetTitle: { fontFamily: Font.bodyBold, fontSize: 18, color: theme.text, textAlign: 'center' },
+    sheetSubtitle: { fontFamily: Font.body, fontSize: 13.5, color: theme.sub, textAlign: 'center', marginTop: 6, marginBottom: 18 },
+    textInput: { borderWidth: 1, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, fontFamily: Font.body, fontSize: 16 },
+    sheetActions: { flexDirection: 'row', gap: 12 },
+    cancelBtn: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+    cancelText: { fontFamily: Font.bodySemi, fontSize: 15 },
+    confirmText: { fontFamily: Font.bodyBold, fontSize: 15 },
+    deleteIcon: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+    deleteTitle: { fontFamily: Font.bodyBold, fontSize: 19, color: theme.text, marginBottom: 9 },
+    deleteMsg: { fontFamily: Font.body, fontSize: 14, color: theme.sub, textAlign: 'center', lineHeight: 21, marginBottom: 22 },
+    deleteConfirm: { flex: 1, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
+    deleteConfirmText: { fontFamily: Font.bodyBold, fontSize: 15, color: '#fff' },
+  });
+
+// Fixed brand palette for the shareable image (theme-independent).
+const sh = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  card: { backgroundColor: '#0E1320', borderWidth: 1, borderColor: '#24303f', borderRadius: 22, padding: 18 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  title: { fontFamily: Font.bodyBold, fontSize: 16, color: '#F1F4FC' },
+  date: { fontFamily: Font.body, fontSize: 12, color: '#7C879A', marginTop: 2 },
+  retBadge: { backgroundColor: 'rgba(124,246,208,0.16)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 8 },
+  retText: { fontFamily: Font.displayBold, fontSize: 12, color: '#8DF7C6' },
+  balancePanel: { backgroundColor: '#7CF6B0', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, marginVertical: 14 },
+  balanceLabel: { fontFamily: Font.bodyBold, fontSize: 10, letterSpacing: 1, color: '#04140D', opacity: 0.65 },
+  balanceValue: { fontFamily: Font.displayBold, fontSize: 27, color: '#04140D', marginTop: 2 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 14 },
+  statLabel: { fontFamily: Font.bodySemi, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, color: '#7C879A' },
+  statValue: { fontFamily: Font.bodyBold, fontSize: 14, color: '#E7ECF6', marginTop: 3 },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, borderTopWidth: 1, borderTopColor: '#1E2A38' },
+  logo: { width: 24, height: 24, borderRadius: 6, backgroundColor: '#7CF6B0', alignItems: 'center', justifyContent: 'center' },
+  brand: { fontFamily: Font.bodyBold, fontSize: 13, color: '#E7ECF6', letterSpacing: 0.3 },
+  appStore: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#000', paddingVertical: 5, paddingHorizontal: 10, borderRadius: 6 },
+  appStoreText: { fontFamily: Font.bodySemi, fontSize: 11, color: '#fff' },
 });

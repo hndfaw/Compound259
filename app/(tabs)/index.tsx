@@ -1,1026 +1,391 @@
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Slider from '@react-native-community/slider';
-import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
 import * as StoreReview from 'expo-store-review';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useMemo, useState } from 'react';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
-import { ScreenHeader } from '@/components/screen-header';
-import { ThemedText } from '@/components/themed-text';
-import { TutorialTooltip } from '@/components/tutorial-tooltip';
+import { Chip } from '@/components/ui/chip';
+import { GlassCard } from '@/components/ui/glass-card';
+import { GradientButton } from '@/components/ui/gradient-button';
+import { GradientText } from '@/components/ui/gradient-text';
+import { GrowthChart } from '@/components/ui/growth-chart';
+import { Icon } from '@/components/ui/icon';
+import { Screen } from '@/components/ui/screen';
+import { SegmentBar } from '@/components/ui/segment-bar';
+import { Sheet } from '@/components/ui/sheet';
+import { Font, Theme } from '@/constants/tokens';
 import { useCalculations } from '@/hooks/use-calculations';
-import { useTutorial } from '@/hooks/use-tutorial';
-import { formatCompact, formatTrimmed, formatWithCommas, parseAmount } from '@/utils/format';
-import { AppColors } from '@/constants/tokens';
+import { useCountUp } from '@/hooks/use-count-up';
+import { useTheme } from '@/hooks/use-theme';
+import { breakdown, chartSeries, money, smoothPath } from '@/utils/finance';
 
-const GREEN_ACCENT = AppColors.accent;
+const FREQ_OPTIONS = ['Annually', 'Semi-annually', 'Quarterly', 'Monthly'];
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+const kLabel = (v: number) => (v >= 1000 ? `$${v / 1000}k` : `$${v}`);
 
-const FREQUENCY_OPTIONS = ['Annually', 'Semi-annually', 'Quarterly', 'Monthly'] as const;
-type FrequencyType = (typeof FREQUENCY_OPTIONS)[number];
-
-// Curated contribution amounts (no 50-step increments)
-const CONTRIBUTION_VALUES = [
-  0,
-  100,
-  250,
-  500,
-  750,
-  1000,
-  1500,
-  2000,
-  2500,
-  3000,
-  3500,
-  4000,
-  4500,
-  5000,
-  6000,
-  7000,
-  8000,
-  9000,
-  10000,
-  12500,
-  15000,
-];
-
-// Curated initial investment amounts (50 meaningful stops)
-const INITIAL_DEPOSIT_VALUES = [
-  0,
-  500,
-  1000,
-  1500,
-  2000,
-  2500,
-  3000,
-  3500,
-  4000,
-  4500,
-  5000,
-  6000,
-  7000,
-  8000,
-  9000,
-  10000,
-  12000,
-  14000,
-  16000,
-  18000,
-  20000,
-  22500,
-  25000,
-  27500,
-  30000,
-  32500,
-  35000,
-  37500,
-  40000,
-  45000,
-  50000,
-  55000,
-  60000,
-  65000,
-  70000,
-  75000,
-  80000,
-  85000,
-  90000,
-  95000,
-  100000,
-  110000,
-  120000,
-  130000,
-  140000,
-  150000,
-  160000,
-  170000,
-  180000,
-  200000,
-];
-
-const FREQUENCY_PERIODS: Record<FrequencyType, number> = {
-  Annually: 1,
-  'Semi-annually': 2,
-  Quarterly: 4,
-  Monthly: 12,
+const haptic = () => {
+  if (Platform.OS === 'ios') Haptics.selectionAsync();
 };
 
-// Aliased to the shared helpers so the existing call sites read unchanged.
-const formatCurrencySmart = formatCompact;
-const formatCurrencyTrim = formatTrimmed;
-const parseNumber = parseAmount;
-
 export default function CalculatorScreen() {
-  const insets = useSafeAreaInsets();
-  const lastYearsSliderValue = useRef(7);
-  const lastDepositSliderValue = useRef(5000);
-  const lastRateSliderValue = useRef(10);
-  const lastContributionSliderValue = useRef(0);
+  const { theme } = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const { saveCalculation, calculations } = useCalculations();
 
-  const [initialDeposit, setInitialDeposit] = useState(() => formatWithCommas('5000'));
-  const [contribution, setContribution] = useState('0');
-  const [frequency, setFrequency] = useState<FrequencyType>('Monthly');
-  const [yearsOfGrowth, setYearsOfGrowth] = useState('7');
-  const [estimatedRate, setEstimatedRate] = useState('10');
-  const [totalBalance, setTotalBalance] = useState(0);
-  const [interestEarned, setInterestEarned] = useState(0);
-  const [useCompactBalance, setUseCompactBalance] = useState(false);
-  const [balanceWidth, setBalanceWidth] = useState(0);
+  const [initial, setInitial] = useState(10000);
+  const [monthly, setMonthly] = useState(500);
+  const [rate, setRate] = useState(8);
+  const [years, setYears] = useState(25);
+  const [freq, setFreq] = useState('Monthly');
 
-  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [freqOpen, setFreqOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
   const [saveTitle, setSaveTitle] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
 
-  const { saveCalculation, calculations } = useCalculations();
-  const { showTutorial, skipTutorial, resetTutorial } = useTutorial();
-
-  const isSaveDisabled = isSaving || !saveTitle.trim();
-
-  const balanceDisplay = useMemo(
-    () => (useCompactBalance ? formatCurrencySmart(totalBalance) : formatCurrencyTrim(totalBalance)),
-    [totalBalance, useCompactBalance],
+  const inputs = useMemo(
+    () => ({ initial, contribution: monthly, ratePct: rate, freq }),
+    [initial, monthly, rate, freq],
   );
+  const b = useMemo(() => breakdown(inputs, years), [inputs, years]);
+  const display = useCountUp(b.balance);
 
-  const calculateInvestment = useCallback(() => {
-    const principal = parseNumber(initialDeposit);
-    const periodicContribution = parseNumber(contribution);
-    const annualRate = (Number(estimatedRate) || 0) / 100;
-    const years = Number(yearsOfGrowth) || 0;
-    const n = FREQUENCY_PERIODS[frequency];
+  const { line, area } = useMemo(() => {
+    const l = smoothPath(chartSeries(inputs, years));
+    return { line: l, area: `${l} L 312 150 L 8 150 Z` };
+  }, [inputs, years]);
 
-    const periods = n * years;
-    const ratePerPeriod = n > 0 ? annualRate / n : 0;
+  const set = (fn: () => void) => () => {
+    haptic();
+    fn();
+  };
 
-    // Future value with recurring contributions at the same frequency.
-    const growthFactor = Math.pow(1 + ratePerPeriod, periods);
-    const futureValuePrincipal = principal * growthFactor;
+  const ASSUMPTIONS = [
+    {
+      label: 'Initial investment',
+      value: money(initial),
+      dec: () => setInitial((v) => clamp(v - 1000, 0, 1e8)),
+      inc: () => setInitial((v) => clamp(v + 1000, 0, 1e8)),
+      chips: [5000, 10000, 25000, 50000].map((v) => ({ label: kLabel(v), active: initial === v, set: () => setInitial(v) })),
+    },
+    {
+      label: 'Monthly contribution',
+      value: money(monthly),
+      dec: () => setMonthly((v) => clamp(v - 50, 0, 1e6)),
+      inc: () => setMonthly((v) => clamp(v + 50, 0, 1e6)),
+      chips: [100, 250, 500, 1000].map((v) => ({ label: kLabel(v), active: monthly === v, set: () => setMonthly(v) })),
+    },
+    {
+      label: 'Annual return',
+      value: `${rate}%`,
+      dec: () => setRate((v) => clamp(v - 1, 0, 50)),
+      inc: () => setRate((v) => clamp(v + 1, 0, 50)),
+      chips: [4, 6, 8, 10].map((v) => ({ label: `${v}%`, active: rate === v, set: () => setRate(v) })),
+    },
+    {
+      label: 'Time horizon',
+      value: `${years} yrs`,
+      dec: () => setYears((v) => clamp(v - 1, 1, 60)),
+      inc: () => setYears((v) => clamp(v + 1, 1, 60)),
+      chips: [10, 20, 25, 30].map((v) => ({ label: `${v}y`, active: years === v, set: () => setYears(v) })),
+    },
+  ];
 
-    const futureValueContributions =
-      ratePerPeriod === 0
-        ? periodicContribution * periods
-        : periodicContribution * ((growthFactor - 1) / ratePerPeriod);
-
-    const totalFutureValue = futureValuePrincipal + futureValueContributions;
-    const totalContributions = principal + periodicContribution * periods;
-    const totalInterest = totalFutureValue - totalContributions;
-
-    setTotalBalance(totalFutureValue);
-    setInterestEarned(totalInterest);
-  }, [initialDeposit, contribution, estimatedRate, yearsOfGrowth, frequency]);
-
-  useEffect(() => {
-    calculateInvestment();
-  }, [calculateInvestment]);
-
-  const totalContributionsValue = useMemo(() => {
-    const periodicContribution = parseNumber(contribution);
-    const n = FREQUENCY_PERIODS[frequency];
-    const years = Number(yearsOfGrowth) || 0;
-    return periodicContribution * n * years;
-  }, [contribution, frequency, yearsOfGrowth]);
-
-  const growthPercentage = useMemo(() => {
-    const totalInvested = parseNumber(initialDeposit) + totalContributionsValue;
-    if (totalInvested <= 0) return '0.0';
-    return ((interestEarned / totalInvested) * 100).toFixed(1);
-  }, [interestEarned, initialDeposit, totalContributionsValue]);
-
-  const { principalRatio, contributionRatio, interestRatio } = useMemo(() => {
-    const principal = parseNumber(initialDeposit);
-    const periodicContribution = parseNumber(contribution);
-    const n = FREQUENCY_PERIODS[frequency];
-    const years = Number(yearsOfGrowth) || 0;
-    const totalContributions = periodicContribution * n * years;
-
-    if (totalBalance <= 0) {
-      return { principalRatio: 0.33, contributionRatio: 0.33, interestRatio: 0.34 };
-    }
-
-    const pRatio = principal / totalBalance;
-    const cRatio = totalContributions / totalBalance;
-    const iRatio = interestEarned / totalBalance;
-
-    return {
-      principalRatio: Math.max(pRatio, 0.05),
-      contributionRatio: Math.max(cRatio, 0),
-      interestRatio: Math.max(iRatio, 0.05),
-    };
-  }, [initialDeposit, contribution, frequency, yearsOfGrowth, totalBalance, interestEarned]);
-
-  const handleFrequencySelect = (selected: FrequencyType) => {
-    if (Platform.OS === 'ios') {
-      Haptics.selectionAsync();
-    }
-    setFrequency(selected);
-    setShowFrequencyPicker(false);
+  const pickFreq = (f: string) => {
+    haptic();
+    setFreq(f);
+    setFreqOpen(false);
   };
 
   const handleSave = async () => {
     if (!saveTitle.trim()) {
-      Toast.show({
-        type: 'error',
-        text1: 'Title Required',
-        text2: 'Please enter a title for your calculation.',
-        position: 'top',
-        visibilityTime: 3000,
-      });
+      Toast.show({ type: 'error', text1: 'Please enter a title', position: 'top', visibilityTime: 2500 });
       return;
     }
-
     setIsSaving(true);
     try {
-      const periodicContribution = parseNumber(contribution);
-      const n = FREQUENCY_PERIODS[frequency];
-      const years = Number(yearsOfGrowth) || 0;
-      const totalContributionValue = periodicContribution * n * years;
-
       await saveCalculation({
         title: saveTitle.trim(),
-        finalBalance: totalBalance,
-        initialDeposit: parseNumber(initialDeposit),
-        interestEarned,
-        contributions: totalContributionValue,
-        contributionAmount: periodicContribution,
-        timePeriod: Number(yearsOfGrowth) || 0,
-        rateOfReturn: Number(estimatedRate) || 0,
-        frequency,
+        finalBalance: b.balance,
+        initialDeposit: initial,
+        interestEarned: b.interest,
+        contributions: b.contributionsTotal,
+        contributionAmount: monthly,
+        timePeriod: years,
+        rateOfReturn: rate,
+        frequency: freq,
       });
-
-      if (Platform.OS === 'ios') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-
-      setShowSaveModal(false);
+      if (Platform.OS === 'ios') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSaveOpen(false);
       setSaveTitle('');
+      Toast.show({ type: 'success', text1: 'Scenario saved', position: 'top', visibilityTime: 2000 });
 
-      Toast.show({
-        type: 'success',
-        text1: 'Saved!',
-        text2: 'Your calculation has been saved successfully.',
-        position: 'top',
-        visibilityTime: 2000,
-      });
-
-      // Request review after 3rd save (non-intrusive)
       const newCount = calculations.length + 1;
       if (newCount >= 3) {
-        const hasRequestedReview = await AsyncStorage.getItem('hasRequestedReview');
-        if (!hasRequestedReview) {
-          const isAvailable = await StoreReview.isAvailableAsync();
-          if (isAvailable) {
-            await AsyncStorage.setItem('hasRequestedReview', 'true');
-            setTimeout(() => {
-              StoreReview.requestReview();
-            }, 1500);
-          }
+        const requested = await AsyncStorage.getItem('hasRequestedReview');
+        if (!requested && (await StoreReview.isAvailableAsync())) {
+          await AsyncStorage.setItem('hasRequestedReview', 'true');
+          setTimeout(() => StoreReview.requestReview(), 1500);
         }
       }
     } catch {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to save calculation. Please try again.',
-        position: 'top',
-        visibilityTime: 3000,
-      });
+      Toast.show({ type: 'error', text1: 'Failed to save', position: 'top', visibilityTime: 2500 });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const openSaveModal = () => {
-    Keyboard.dismiss();
-    setShowSaveModal(true);
-  };
+  const growthText = `${b.growthPct >= 0 ? '+' : ''}${b.growthPct.toFixed(0)}%`;
 
   return (
-    <View style={styles.wrapper}>
+    <Screen title="Compound" subtitle="Watch your money grow over time">
+      {/* Result card */}
+      <GlassCard style={s.resultCard}>
+        <View style={s.rowBetween}>
+          <Text style={s.futureLabel}>Future Value</Text>
+          <View style={s.growthBadge}>
+            <Icon name="trending" size={11} color={theme.accent} strokeWidth={2.6} />
+            <Text style={s.growthText}>{growthText}</Text>
+          </View>
+        </View>
+        <GradientText text={money(display)} colors={theme.balanceGrad} style={s.balance} numberOfLines={1} />
+        <SegmentBar principalPct={b.principalRatio} contribPct={b.contribRatio} />
+        <View style={s.legendRow}>
+          <Legend theme={theme} color={theme.cPrincipal} label="Principal" value={money(initial)} />
+          <Legend theme={theme} color={theme.cContrib} label="Contributions" value={money(b.contributionsTotal)} />
+          <Legend theme={theme} color={theme.cInterest} label="Interest" value={money(b.interest)} valueColor={theme.accent} align="flex-end" />
+        </View>
+      </GlassCard>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: Math.max(52, insets.top + 28), paddingBottom: 80 + insets.bottom },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <ScreenHeader
-          icon="trending-up"
-          iconSize={22}
-          accent={GREEN_ACCENT}
-          title="Compound"
-          subtitle="Watch your money grow over time"
-          onHelpPress={resetTutorial}
-        />
+      {/* Chart card */}
+      <GlassCard style={s.chartCard}>
+        <View style={[s.rowBetween, { paddingHorizontal: 4, marginBottom: 2 }]}>
+          <Text style={s.chartTitle}>Projected growth</Text>
+          <Text style={s.freqBadge}>{freq}</Text>
+        </View>
+        <GrowthChart line={line} area={area} />
+      </GlassCard>
 
-        {/* Result Card */}
-        <View style={styles.resultCard}>
-          <View style={styles.resultHeader}>
-            <ThemedText style={styles.resultLabel}>Future Value</ThemedText>
-            <View style={styles.growthBadge}>
-              <ThemedText style={styles.growthBadgeText}>+{growthPercentage}%</ThemedText>
+      <Text style={s.sectionLabel}>Assumptions</Text>
+      {ASSUMPTIONS.map((a) => (
+        <GlassCard key={a.label} style={s.inputCard} radius={18}>
+          <View style={s.rowBetween}>
+            <View>
+              <Text style={s.inputLabel}>{a.label}</Text>
+              <Text style={s.inputValue}>{a.value}</Text>
+            </View>
+            <View style={s.stepperRow}>
+              <TouchableOpacity onPress={set(a.dec)} activeOpacity={0.8} style={[s.stepBtn, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder }]} accessibilityLabel={`Decrease ${a.label}`}>
+                <Icon name="minus" size={16} color={theme.mutedCol} strokeWidth={2.6} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={set(a.inc)} activeOpacity={0.8} style={[s.stepBtn, { backgroundColor: theme.accentSoft, borderColor: theme.accentBorder }]} accessibilityLabel={`Increase ${a.label}`}>
+                <Icon name="plus" size={16} color={theme.accent} strokeWidth={2.6} />
+              </TouchableOpacity>
             </View>
           </View>
-          <View
-            onLayout={(e) => setBalanceWidth(e.nativeEvent.layout.width)}
-            style={{ alignSelf: 'stretch' }}
-          >
-            <ThemedText
-              style={styles.totalBalance}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.6}
-              onTextLayout={(e) => {
-                const lineWidth = e.nativeEvent.lines?.[0]?.width || 0;
-                if (!balanceWidth) return;
-                const shouldCompact = !useCompactBalance && lineWidth > balanceWidth * 0.98;
-                if (shouldCompact) setUseCompactBalance(true);
-              }}
+          <View style={s.chipRow}>
+            {a.chips.map((c) => (
+              <Chip key={c.label} label={c.label} active={c.active} onPress={set(c.set)} />
+            ))}
+          </View>
+        </GlassCard>
+      ))}
+
+      {/* Frequency selector */}
+      <TouchableOpacity activeOpacity={0.85} onPress={() => { haptic(); setFreqOpen(true); }}>
+        <GlassCard style={s.freqCard} radius={18}>
+          <View>
+            <Text style={s.inputLabel}>Compounding frequency</Text>
+            <Text style={s.freqValue}>{freq}</Text>
+          </View>
+          <Icon name="chevronDown" size={18} color={theme.sub} strokeWidth={2.2} />
+        </GlassCard>
+      </TouchableOpacity>
+
+      <GradientButton onPress={() => { haptic(); setSaveOpen(true); }} style={{ marginBottom: 4 }}>
+        <Icon name="bookmark" size={17} color={theme.btnFg} filled />
+        <Text style={[s.saveBtnText, { color: theme.btnFg }]}>Save this scenario</Text>
+      </GradientButton>
+
+      {/* Frequency sheet */}
+      <Sheet visible={freqOpen} onClose={() => setFreqOpen(false)}>
+        <Text style={s.sheetTitle}>Compounding frequency</Text>
+        {FREQ_OPTIONS.map((f) => {
+          const active = f === freq;
+          return (
+            <TouchableOpacity
+              key={f}
+              onPress={() => pickFreq(f)}
+              activeOpacity={0.85}
+              style={[s.freqOption, { backgroundColor: active ? theme.accentSoft : theme.mutedBg, borderColor: active ? theme.accentBorder : theme.mutedBorder }]}
             >
-              {balanceDisplay}
-            </ThemedText>
-          </View>
-
-          <View style={styles.progressBar}>
-            <View style={[styles.progressPrincipal, { flex: principalRatio }]} />
-            {contributionRatio > 0 && (
-              <View style={[styles.progressContribution, { flex: contributionRatio }]} />
-            )}
-            <View style={[styles.progressInterest, { flex: interestRatio }]} />
-          </View>
-
-          <View style={styles.breakdownRow}>
-            <View style={styles.breakdownItem}>
-              <View style={styles.breakdownTexts}>
-                <ThemedText style={styles.breakdownLabel}>Principal</ThemedText>
-                <ThemedText style={[styles.breakdownValue, { color: '#60A5FA' }]}>{formatCurrencySmart(parseNumber(initialDeposit))}</ThemedText>
-              </View>
-            </View>
-            {contributionRatio > 0 && (
-              <View style={styles.breakdownItem}>
-                <View style={styles.breakdownTexts}>
-                  <ThemedText style={styles.breakdownLabel}>Contributions</ThemedText>
-                  <ThemedText style={[styles.breakdownValue, { color: '#F59E0B' }]}>{formatCurrencySmart(totalContributionsValue)}</ThemedText>
-                </View>
-              </View>
-            )}
-            <View style={styles.breakdownItem}>
-              <View style={styles.breakdownTexts}>
-                <ThemedText style={styles.breakdownLabel}>Interest</ThemedText>
-                <ThemedText style={[styles.breakdownValue, { color: '#34D399' }]}>{formatCurrencySmart(interestEarned)}</ThemedText>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Input Fields */}
-        <View style={styles.inputCard}>
-          <View style={styles.inputHeader}>
-            <View style={styles.inputIconBadge}>
-              <Ionicons name="cash-outline" size={16} color={GREEN_ACCENT} />
-            </View>
-            <ThemedText style={styles.inputLabel}>Initial Investment</ThemedText>
-          </View>
-          <TextInput
-            style={styles.input}
-            value={initialDeposit}
-            onChangeText={(text) => setInitialDeposit(formatWithCommas(text))}
-            keyboardType="numeric"
-            placeholder="10000"
-            placeholderTextColor="#4B5563"
-            selectionColor={GREEN_ACCENT}
-            maxLength={21}
-          />
-          <Slider
-            style={styles.slider}
-            minimumValue={0}
-            maximumValue={INITIAL_DEPOSIT_VALUES.length - 1}
-            step={1}
-            value={INITIAL_DEPOSIT_VALUES.indexOf(parseNumber(initialDeposit)) !== -1 ? INITIAL_DEPOSIT_VALUES.indexOf(parseNumber(initialDeposit)) : 0}
-            onValueChange={(index) => {
-              const roundedIndex = Math.round(index);
-              const depositValue = INITIAL_DEPOSIT_VALUES[roundedIndex] ?? INITIAL_DEPOSIT_VALUES[0];
-              if (depositValue !== lastDepositSliderValue.current) {
-                lastDepositSliderValue.current = depositValue;
-                setInitialDeposit(formatWithCommas(String(depositValue)));
-                if (Platform.OS === 'ios') {
-                  Haptics.selectionAsync();
-                }
-              }
-            }}
-            minimumTrackTintColor={GREEN_ACCENT}
-            maximumTrackTintColor="#374151"
-            thumbTintColor={GREEN_ACCENT}
-          />
-        </View>
-
-        <View style={styles.inputCard}>
-          <View style={styles.inputHeader}>
-            <View style={styles.inputIconBadge}>
-              <Ionicons name="analytics-outline" size={16} color={GREEN_ACCENT} />
-            </View>
-            <ThemedText style={styles.inputLabel}>Interest Rate</ThemedText>
-          </View>
-          <View style={styles.inputWithSuffix}>
-            <TextInput
-              style={styles.inputFlex}
-              value={estimatedRate}
-              onChangeText={(text) => {
-                const digitsOnly = text.replace(/[^0-9]/g, '');
-                if (!digitsOnly) {
-                  setEstimatedRate('');
-                  return;
-                }
-                const withoutLeadingZeros = digitsOnly.replace(/^0+(?=\d)/, '');
-                const clamped = Math.min(Number(withoutLeadingZeros), 50);
-                setEstimatedRate(String(clamped));
-              }}
-              keyboardType="numeric"
-              placeholder="10"
-              placeholderTextColor="#4B5563"
-              selectionColor={GREEN_ACCENT}
-              maxLength={2}
-            />
-            <ThemedText style={styles.inputSuffix}>%</ThemedText>
-          </View>
-          <Slider
-            style={styles.slider}
-            minimumValue={0}
-            maximumValue={50}
-            step={1}
-            value={Number(estimatedRate) || 0}
-            onValueChange={(value) => {
-              const roundedValue = Math.round(value);
-              if (roundedValue !== lastRateSliderValue.current) {
-                lastRateSliderValue.current = roundedValue;
-                setEstimatedRate(String(roundedValue));
-                if (Platform.OS === 'ios') {
-                  Haptics.selectionAsync();
-                }
-              }
-            }}
-            minimumTrackTintColor={GREEN_ACCENT}
-            maximumTrackTintColor="#374151"
-            thumbTintColor={GREEN_ACCENT}
-          />
-        </View>
-
-        <View style={styles.inputCard}>
-          <View style={styles.inputHeader}>
-            <View style={styles.inputIconBadge}>
-              <Ionicons name="calendar-outline" size={16} color={GREEN_ACCENT} />
-            </View>
-            <ThemedText style={styles.inputLabel}>Time Period</ThemedText>
-          </View>
-          <View style={styles.inputWithSuffix}>
-            <TextInput
-              style={styles.inputFlex}
-              value={yearsOfGrowth}
-              onChangeText={(text) => {
-                const digitsOnly = text.replace(/[^0-9]/g, '');
-                const withoutLeadingZeros = digitsOnly.replace(/^0+(?=\d)/, '');
-                setYearsOfGrowth(withoutLeadingZeros);
-              }}
-              keyboardType="numeric"
-              placeholder="10"
-              placeholderTextColor="#4B5563"
-              selectionColor={GREEN_ACCENT}
-              maxLength={6}
-            />
-            <ThemedText style={styles.inputSuffix}>years</ThemedText>
-          </View>
-          <Slider
-            style={styles.slider}
-            minimumValue={0}
-            maximumValue={50}
-            step={1}
-            value={Number(yearsOfGrowth) || 0}
-            onValueChange={(value) => {
-              const roundedValue = Math.round(value);
-              if (roundedValue !== lastYearsSliderValue.current) {
-                lastYearsSliderValue.current = roundedValue;
-                setYearsOfGrowth(String(roundedValue));
-                if (Platform.OS === 'ios') {
-                  Haptics.selectionAsync();
-                }
-              }
-            }}
-            minimumTrackTintColor={GREEN_ACCENT}
-            maximumTrackTintColor="#374151"
-            thumbTintColor={GREEN_ACCENT}
-          />
-        </View>
-
-        <View style={styles.inputCard}>
-          <View style={styles.inputHeader}>
-            <View style={styles.inputIconBadge}>
-              <Ionicons name="add-circle-outline" size={16} color={GREEN_ACCENT} />
-            </View>
-            <ThemedText style={styles.inputLabel}>Contribution (per period)</ThemedText>
-          </View>
-          <TextInput
-            style={styles.input}
-            value={contribution}
-            onChangeText={(text) => setContribution(formatWithCommas(text))}
-            keyboardType="numeric"
-            placeholder="500"
-            placeholderTextColor="#4B5563"
-            selectionColor={GREEN_ACCENT}
-            maxLength={21}
-          />
-          <Slider
-            style={styles.slider}
-            minimumValue={0}
-            maximumValue={CONTRIBUTION_VALUES.length - 1}
-            step={1}
-            value={CONTRIBUTION_VALUES.indexOf(parseNumber(contribution)) !== -1 ? CONTRIBUTION_VALUES.indexOf(parseNumber(contribution)) : 0}
-            onValueChange={(index) => {
-              const roundedIndex = Math.round(index);
-              const contributionValue = CONTRIBUTION_VALUES[roundedIndex];
-              if (contributionValue !== lastContributionSliderValue.current) {
-                lastContributionSliderValue.current = contributionValue;
-                setContribution(formatWithCommas(String(contributionValue)));
-                if (Platform.OS === 'ios') {
-                  Haptics.selectionAsync();
-                }
-              }
-            }}
-            minimumTrackTintColor={GREEN_ACCENT}
-            maximumTrackTintColor="#374151"
-            thumbTintColor={GREEN_ACCENT}
-          />
-        </View>
-
-        <View style={styles.inputCard}>
-          <View style={styles.inputHeader}>
-            <View style={styles.inputIconBadge}>
-              <Ionicons name="sync-outline" size={16} color={GREEN_ACCENT} />
-            </View>
-            <ThemedText style={styles.inputLabel}>Frequency</ThemedText>
-          </View>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.selectorRow}
-            onPress={() => {
-              if (Platform.OS === 'ios') {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
-              setShowFrequencyPicker(true);
-            }}
-          >
-            <ThemedText style={styles.selectorText}>{frequency}</ThemedText>
-            <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Save Button */}
-        <TouchableOpacity activeOpacity={0.85} style={styles.saveButtonWrapper} onPress={openSaveModal}>
-          <View style={styles.saveButton}>
-            <Ionicons name="bookmark" size={18} color="#FFFFFF" />
-            <ThemedText style={styles.saveButtonText}>Save This Calculation</ThemedText>
-          </View>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Frequency Picker Modal */}
-      <Modal
-        visible={showFrequencyPicker}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowFrequencyPicker(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowFrequencyPicker(false)}
-        >
-          <TouchableOpacity activeOpacity={1} style={styles.pickerSheet}>
-            <View style={styles.pickerHandle} />
-            <ThemedText style={styles.modalTitle}>Select Frequency</ThemedText>
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={frequency}
-                onValueChange={(itemValue: FrequencyType) => handleFrequencySelect(itemValue)}
-                dropdownIconColor="#9CA3AF"
-                style={styles.picker}
-                itemStyle={styles.pickerItem}
-                mode="dropdown"
-              >
-                {FREQUENCY_OPTIONS.map((option) => (
-                  <Picker.Item key={option} label={option} value={option} color={Platform.OS === 'ios' ? '#FFFFFF' : '#FFFFFF'} />
-                ))}
-              </Picker>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Save Modal */}
-      <Modal visible={showSaveModal} animationType="slide" transparent onRequestClose={() => setShowSaveModal(false)}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowSaveModal(false)}
-          >
-            <TouchableOpacity activeOpacity={1} style={styles.saveModalContent}>
-              <View style={styles.modalHandle} />
-              <ThemedText style={styles.modalTitle}>Save Calculation</ThemedText>
-              <ThemedText style={styles.saveModalSubtitle}>Give your calculation a memorable name</ThemedText>
-              <TextInput
-                style={styles.saveInput}
-                value={saveTitle}
-                onChangeText={setSaveTitle}
-                placeholder="e.g., Retirement Fund Goal"
-                placeholderTextColor="#6B7280"
-                selectionColor={GREEN_ACCENT}
-                autoFocus
-                maxLength={50}
-              />
-              <View style={styles.saveModalPreview}>
-                <ThemedText style={styles.previewLabel}>Final Balance</ThemedText>
-                <ThemedText style={styles.previewValue}>{formatCurrencyTrim(totalBalance)}</ThemedText>
-              </View>
-              <View style={styles.saveModalActions}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => {
-                    setShowSaveModal(false);
-                    setSaveTitle('');
-                  }}
-                >
-                  <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.confirmButton, isSaveDisabled && styles.confirmButtonDisabled]}
-                  onPress={handleSave}
-                  disabled={isSaveDisabled}
-                >
-                  <View style={[styles.confirmButtonGradient, isSaveDisabled && styles.confirmButtonGradientDisabled]}>
-                    <Ionicons name="bookmark" size={16} color="#FFFFFF" />
-                    <ThemedText style={styles.confirmButtonText}>{isSaving ? 'Saving...' : 'Save'}</ThemedText>
-                  </View>
-                </TouchableOpacity>
-              </View>
+              <Text style={[s.freqOptionText, { color: active ? theme.accent : theme.text }]}>{f}</Text>
+              {active && <Icon name="check" size={18} color={theme.accent} strokeWidth={2.6} />}
             </TouchableOpacity>
+          );
+        })}
+      </Sheet>
+
+      {/* Save sheet */}
+      <Sheet visible={saveOpen} onClose={() => setSaveOpen(false)}>
+        <Text style={s.sheetTitle}>Save calculation</Text>
+        <Text style={s.sheetSubtitle}>Give your scenario a memorable name</Text>
+        <TextInput
+          value={saveTitle}
+          onChangeText={setSaveTitle}
+          placeholder="e.g. Retirement Fund Goal"
+          placeholderTextColor={theme.ter}
+          selectionColor={theme.accent}
+          autoFocus
+          maxLength={50}
+          style={[s.textInput, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder, color: theme.text }]}
+        />
+        <View style={[s.previewBox, { backgroundColor: theme.accentSoft }]}>
+          <Text style={s.previewLabel}>Final balance</Text>
+          <Text style={[s.previewValue, { color: theme.accent }]}>{money(b.balance)}</Text>
+        </View>
+        <View style={s.sheetActions}>
+          <TouchableOpacity onPress={() => setSaveOpen(false)} activeOpacity={0.85} style={[s.cancelBtn, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder }]}>
+            <Text style={[s.cancelText, { color: theme.mutedCol }]}>Cancel</Text>
           </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </Modal>
+          <GradientButton onPress={handleSave} disabled={isSaving} style={{ flex: 1.5 }} radius={12} contentStyle={{ paddingVertical: 14 }}>
+            <Text style={[s.saveConfirmText, { color: theme.btnFg }]}>{isSaving ? 'Saving…' : 'Save'}</Text>
+          </GradientButton>
+        </View>
+      </Sheet>
+    </Screen>
+  );
+}
 
-      {/* Tutorial Tooltip */}
-      <TutorialTooltip
-        visible={showTutorial}
-        message="Enter your initial investment, set your interest rate and time period, then watch your money grow! Tap the bookmark button to save different scenarios."
-        onDismiss={skipTutorial}
-        arrow="none"
-      />
-
+function Legend({
+  theme,
+  color,
+  label,
+  value,
+  valueColor,
+  align = 'flex-start',
+}: {
+  theme: Theme;
+  color: string;
+  label: string;
+  value: string;
+  valueColor?: string;
+  align?: 'flex-start' | 'flex-end';
+}) {
+  return (
+    <View style={{ alignItems: align }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ width: 8, height: 8, borderRadius: 3, backgroundColor: color }} />
+        <Text style={{ fontFamily: Font.bodySemi, fontSize: 11, color: theme.sub }}>{label}</Text>
+      </View>
+      <Text style={{ fontFamily: Font.display, fontSize: 15, color: valueColor ?? theme.text, marginTop: 3 }}>{value}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: '#030712',
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 120,
-  },
-  resultCard: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 32,
-    backgroundColor: '#065F46',
-  },
-  resultHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  resultLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  growthBadge: {
-    backgroundColor: 'rgba(52, 211, 153, 0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  growthBadgeText: {
-    color: '#34D399',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  totalBalance: {
-    color: '#FFFFFF',
-    fontSize: 38,
-    fontWeight: '700',
-    marginBottom: 16,
-    letterSpacing: -1,
-    lineHeight: 44,
-  },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    overflow: 'hidden',
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  progressPrincipal: {
-    backgroundColor: '#60A5FA',
-  },
-  progressContribution: {
-    backgroundColor: '#F59E0B',
-  },
-  progressInterest: {
-    backgroundColor: '#34D399',
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  breakdownItem: {
-    alignItems: 'flex-start',
-  },
-  breakdownTexts: {
-    flexDirection: 'column',
-  },
-  breakdownLabel: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 11,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  breakdownValue: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  inputCard: {
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-  },
-  inputHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  inputIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  inputLabel: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  input: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '600',
-    lineHeight: 32,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  inputWithSuffix: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#374151',
-    paddingHorizontal: 12,
-  },
-  inputFlex: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '600',
-    lineHeight: 32,
-    paddingVertical: 8,
-  },
-  inputSuffix: {
-    color: '#6B7280',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-    marginTop: 8,
-  },
-  selectorRow: {
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectorText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  pickerWrapper: {
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-  },
-  picker: {
-    color: '#FFFFFF',
-  },
-  pickerItem: {
-    color: '#FFFFFF',
-    fontSize: 18,
-  },
-  pickerSheet: {
-    backgroundColor: '#1F2937',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingBottom: 32,
-    paddingTop: 12,
-  },
-  pickerHandle: {
-    width: 36,
-    height: 4,
-    backgroundColor: '#4B5563',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  saveButtonWrapper: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: 24,
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: '#1F2937',
-  },
-  saveButtonText: {
-    color: '#9CA3AF',
-    fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
-  },
-  saveModalContent: {
-    backgroundColor: '#1F2937',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    paddingTop: 12,
-  },
-  modalHandle: {
-    width: 36,
-    height: 4,
-    backgroundColor: '#4B5563',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F9FAFB',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  saveModalSubtitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  saveInput: {
-    backgroundColor: '#111827',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#F9FAFB',
-    fontWeight: '500',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  saveModalPreview: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  previewLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  previewValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: GREEN_ACCENT,
-  },
-  saveModalActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#374151',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  confirmButton: {
-    flex: 1.5,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  confirmButtonDisabled: {
-    opacity: 0.6,
-  },
-  confirmButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    backgroundColor: '#2D3748',
-  },
-  confirmButtonGradientDisabled: {
-    backgroundColor: '#4B5563',
-  },
-  confirmButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 6,
-  },
-});
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    resultCard: { padding: 16, paddingBottom: 16 },
+    rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    futureLabel: {
+      fontFamily: Font.bodyBold,
+      fontSize: 12,
+      letterSpacing: 1.5,
+      textTransform: 'uppercase',
+      color: theme.sub,
+    },
+    growthBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: theme.accentSoft,
+      borderWidth: 1,
+      borderColor: theme.accentBorder,
+      paddingVertical: 4,
+      paddingHorizontal: 9,
+      borderRadius: 9,
+    },
+    growthText: { fontFamily: Font.displayBold, fontSize: 13, color: theme.accent },
+    balance: {
+      fontFamily: Font.displayBold,
+      fontSize: 42,
+      letterSpacing: -1.5,
+      marginTop: 8,
+      marginBottom: 15,
+    },
+    legendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 13 },
+    chartCard: { marginTop: 14, paddingHorizontal: 14, paddingTop: 16, paddingBottom: 12 },
+    chartTitle: { fontFamily: Font.bodySemi, fontSize: 12, color: theme.sub },
+    freqBadge: {
+      fontFamily: Font.bodyBold,
+      fontSize: 11,
+      color: theme.accent,
+      backgroundColor: theme.accentSoft,
+      paddingVertical: 3,
+      paddingHorizontal: 8,
+      borderRadius: 7,
+      overflow: 'hidden',
+    },
+    sectionLabel: {
+      fontFamily: Font.bodyBold,
+      fontSize: 12,
+      letterSpacing: 1.5,
+      textTransform: 'uppercase',
+      color: theme.ter,
+      marginTop: 22,
+      marginBottom: 10,
+      marginHorizontal: 4,
+    },
+    inputCard: { padding: 15, marginBottom: 11 },
+    inputLabel: {
+      fontFamily: Font.bodySemi,
+      fontSize: 11,
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+      color: theme.sub,
+    },
+    inputValue: { fontFamily: Font.display, fontSize: 25, color: theme.text, marginTop: 3 },
+    stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+    stepBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 13,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    chipRow: { flexDirection: 'row', gap: 7, marginTop: 14 },
+    freqCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, marginBottom: 16 },
+    freqValue: { fontFamily: Font.display, fontSize: 19, color: theme.text, marginTop: 3 },
+    saveBtnText: { fontFamily: Font.bodyBold, fontSize: 15 },
+    sheetTitle: { fontFamily: Font.bodyBold, fontSize: 18, color: theme.text, textAlign: 'center' },
+    sheetSubtitle: { fontFamily: Font.body, fontSize: 13.5, color: theme.sub, textAlign: 'center', marginTop: 6, marginBottom: 18 },
+    freqOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 15,
+      paddingHorizontal: 16,
+      borderRadius: 14,
+      borderWidth: 1,
+      marginBottom: 8,
+      marginTop: 8,
+    },
+    freqOptionText: { fontFamily: Font.bodySemi, fontSize: 15 },
+    textInput: {
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      fontFamily: Font.body,
+      fontSize: 16,
+    },
+    previewBox: { borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center', marginVertical: 16 },
+    previewLabel: { fontFamily: Font.body, fontSize: 12, color: theme.sub },
+    previewValue: { fontFamily: Font.displayBold, fontSize: 22, marginTop: 2 },
+    sheetActions: { flexDirection: 'row', gap: 12 },
+    cancelBtn: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+    cancelText: { fontFamily: Font.bodySemi, fontSize: 15 },
+    saveConfirmText: { fontFamily: Font.bodyBold, fontSize: 15 },
+  });

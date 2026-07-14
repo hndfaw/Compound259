@@ -408,7 +408,7 @@ export default function SavedScreen() {
             </View>
             <ThemedText style={styles.deleteModalTitle}>Delete Calculation?</ThemedText>
             <ThemedText style={styles.deleteModalMessage}>
-              Are you sure you want to delete "{deletingCalculation?.title}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{deletingCalculation?.title}&quot;? This action cannot be undone.
             </ThemedText>
             <View style={styles.deleteModalActions}>
               <TouchableOpacity
@@ -471,7 +471,7 @@ export default function SavedScreen() {
                       <ThemedText style={styles.shareDetailValue}>{formatCurrency(sharingCalculation.initialDeposit)}</ThemedText>
                     </View>
                     <View style={styles.shareDetailItem}>
-                      <ThemedText style={styles.shareDetailLabel}>Monthly</ThemedText>
+                      <ThemedText style={styles.shareDetailLabel}>Per Period</ThemedText>
                       <ThemedText style={styles.shareDetailValue}>{formatCurrency(sharingCalculation.contributionAmount)}</ThemedText>
                     </View>
                     <View style={styles.shareDetailItem}>

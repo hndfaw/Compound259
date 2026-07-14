@@ -24,24 +24,15 @@ import ViewShot from 'react-native-view-shot';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { SavedCalculation, useCalculations } from '@/hooks/use-calculations';
+import { formatFull, formatWhole } from '@/utils/format';
+import { AppColors } from '@/constants/tokens';
 
-const GREEN_ACCENT = '#10B981';
+const GREEN_ACCENT = AppColors.accent;
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(isFinite(value) ? value : 0);
-
-const formatCurrencyFull = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(isFinite(value) ? value : 0);
+// Aliased to the shared helpers so the existing call sites read unchanged.
+const formatCurrency = formatWhole;
+const formatCurrencyFull = formatFull;
 
 export default function SavedScreen() {
   const { calculations, isLoading, updateCalculation, deleteCalculation, refreshCalculations } = useCalculations();
@@ -408,7 +399,7 @@ export default function SavedScreen() {
             </View>
             <ThemedText style={styles.deleteModalTitle}>Delete Calculation?</ThemedText>
             <ThemedText style={styles.deleteModalMessage}>
-              Are you sure you want to delete "{deletingCalculation?.title}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{deletingCalculation?.title}&quot;? This action cannot be undone.
             </ThemedText>
             <View style={styles.deleteModalActions}>
               <TouchableOpacity
@@ -471,7 +462,7 @@ export default function SavedScreen() {
                       <ThemedText style={styles.shareDetailValue}>{formatCurrency(sharingCalculation.initialDeposit)}</ThemedText>
                     </View>
                     <View style={styles.shareDetailItem}>
-                      <ThemedText style={styles.shareDetailLabel}>Monthly</ThemedText>
+                      <ThemedText style={styles.shareDetailLabel}>Per Period</ThemedText>
                       <ThemedText style={styles.shareDetailValue}>{formatCurrency(sharingCalculation.contributionAmount)}</ThemedText>
                     </View>
                     <View style={styles.shareDetailItem}>

@@ -24,8 +24,10 @@ import { ThemedText } from '@/components/themed-text';
 import { TutorialTooltip } from '@/components/tutorial-tooltip';
 import { useCalculations } from '@/hooks/use-calculations';
 import { useTutorial } from '@/hooks/use-tutorial';
+import { formatCompact, formatTrimmed, formatWithCommas, parseAmount } from '@/utils/format';
+import { AppColors } from '@/constants/tokens';
 
-const GREEN_ACCENT = '#10B981';
+const GREEN_ACCENT = AppColors.accent;
 
 const FREQUENCY_OPTIONS = ['Annually', 'Semi-annually', 'Quarterly', 'Monthly'] as const;
 type FrequencyType = (typeof FREQUENCY_OPTIONS)[number];
@@ -116,51 +118,10 @@ const FREQUENCY_PERIODS: Record<FrequencyType, number> = {
   Monthly: 12,
 };
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(isFinite(value) ? value : 0);
-
-const trimTrailingZeros = (formatted: string) => formatted.replace(/\.00(?=$|[A-Za-z])/g, '');
-
-const formatCurrencySmart = (value: number) => {
-  if (!isFinite(value)) return '$0';
-  const abs = Math.abs(value);
-  const sign = value < 0 ? '-' : '';
-
-  const units = [
-    { value: 1e12, suffix: 'T' },
-    { value: 1e9, suffix: 'B' },
-    { value: 1e6, suffix: 'M' },
-  ];
-
-  if (abs >= 1e15) {
-    return `${sign}$${abs.toExponential(2).replace('e+', 'e')}`;
-  }
-
-  const matchedUnit = units.find((unit) => abs >= unit.value);
-  if (matchedUnit) {
-    const compactValue = abs / matchedUnit.value;
-    const decimals = compactValue >= 10 ? 1 : 2;
-    return trimTrailingZeros(`${sign}$${compactValue.toFixed(decimals)}${matchedUnit.suffix}`);
-  }
-
-  return trimTrailingZeros(formatCurrency(value));
-};
-
-const formatWithCommas = (value: string) => {
-  const digitsOnly = value.replace(/[^0-9]/g, '');
-  if (!digitsOnly) return '';
-  // Remove leading zeros unless it's just "0"
-  const withoutLeadingZeros = digitsOnly.replace(/^0+/, '') || '0';
-  return withoutLeadingZeros.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-};
-
-const formatCurrencyTrim = (value: number) => trimTrailingZeros(formatCurrency(value));
-
-const parseNumber = (value: string) => Number(value.replace(/,/g, '')) || 0;
+// Aliased to the shared helpers so the existing call sites read unchanged.
+const formatCurrencySmart = formatCompact;
+const formatCurrencyTrim = formatTrimmed;
+const parseNumber = parseAmount;
 
 export default function CalculatorScreen() {
   const insets = useSafeAreaInsets();
@@ -891,56 +852,6 @@ const styles = StyleSheet.create({
     height: 40,
     marginTop: 8,
   },
-  presetRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-  },
-  presetChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-    backgroundColor: '#0B1220',
-  },
-  presetChipActive: {
-    borderColor: GREEN_ACCENT,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-  },
-  presetText: {
-    color: '#9CA3AF',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  presetTextActive: {
-    color: '#FFFFFF',
-  },
-  frequencyButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  frequencyButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#1F2937',
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  frequencyButtonActive: {
-    backgroundColor: GREEN_ACCENT,
-    borderColor: GREEN_ACCENT,
-  },
-  frequencyButtonText: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  frequencyButtonTextActive: {
-    color: '#FFFFFF',
-  },
   selectorRow: {
     backgroundColor: '#0F172A',
     borderRadius: 12,
@@ -985,11 +896,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
-  },
-  pickerActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
   },
   saveButtonWrapper: {
     borderRadius: 12,
@@ -1116,37 +1022,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     marginLeft: 6,
-  },
-  // Input Accessory View (iOS keyboard toolbar)
-  inputAccessory: {
-    backgroundColor: '#313338',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-evenly',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  inputAccessoryBorder: {
-    borderTopWidth: 0.5,
-    borderTopColor: '#1C1C1E',
-  },
-  accessoryPresetChip: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: '#505053',
-    alignItems: 'center',
-    marginHorizontal: 3,
-  },
-  accessoryPresetChipActive: {
-    backgroundColor: '#10B981',
-  },
-  accessoryPresetText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  accessoryPresetTextActive: {
-    color: '#FFFFFF',
   },
 });

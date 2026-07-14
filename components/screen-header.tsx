@@ -4,8 +4,9 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { AppColors, withAlpha } from '@/constants/tokens';
 
-const DEFAULT_ACCENT = '#10B981';
+const DEFAULT_ACCENT = AppColors.accent;
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -18,18 +19,8 @@ type ScreenHeaderProps = {
   onHelpPress?: () => void;
 };
 
-const hexToRgba = (hex: string, alpha: number) => {
-  const normalized = hex.replace('#', '');
-  if (normalized.length !== 6) return `rgba(0,0,0,${alpha})`;
-  const bigint = parseInt(normalized, 16);
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
-
 export function ScreenHeader({ icon, title, subtitle, accent = DEFAULT_ACCENT, iconSize = 22, onHelpPress }: ScreenHeaderProps) {
-  const badgeColor = hexToRgba(accent, 0.16);
+  const badgeColor = withAlpha(accent, 0.16);
 
   return (
     <View style={styles.headerGroup}>

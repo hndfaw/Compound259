@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 const STORAGE_KEY = '@saved_calculations';
 
@@ -17,7 +17,23 @@ export type SavedCalculation = {
   frequency: string;
 };
 
-export function useCalculations() {
+type CalculationsContextValue = {
+  calculations: SavedCalculation[];
+  isLoading: boolean;
+  saveCalculation: (calculation: Omit<SavedCalculation, 'id' | 'date'>) => Promise<SavedCalculation>;
+  updateCalculation: (id: string, updates: Partial<SavedCalculation>) => Promise<void>;
+  deleteCalculation: (id: string) => Promise<void>;
+  refreshCalculations: () => Promise<void>;
+};
+
+const CalculationsContext = createContext<CalculationsContextValue | null>(null);
+
+/**
+ * Holds the saved calculations once for the whole app so both tabs read and
+ * write the same source of truth (previously each screen kept its own copy and
+ * relied on a focus-refresh to stay in sync).
+ */
+export function CalculationsProvider({ children }: { children: React.ReactNode }) {
   const [calculations, setCalculations] = useState<SavedCalculation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -83,12 +99,26 @@ export function useCalculations() {
     }
   }, [calculations]);
 
-  return {
-    calculations,
-    isLoading,
-    saveCalculation,
-    updateCalculation,
-    deleteCalculation,
-    refreshCalculations: loadCalculations,
-  };
+  return (
+    <CalculationsContext.Provider
+      value={{
+        calculations,
+        isLoading,
+        saveCalculation,
+        updateCalculation,
+        deleteCalculation,
+        refreshCalculations: loadCalculations,
+      }}
+    >
+      {children}
+    </CalculationsContext.Provider>
+  );
+}
+
+export function useCalculations() {
+  const context = useContext(CalculationsContext);
+  if (!context) {
+    throw new Error('useCalculations must be used within a CalculationsProvider');
+  }
+  return context;
 }

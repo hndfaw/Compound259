@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
 
+import { AppColors } from '@/constants/tokens';
 import { ThemedText } from './themed-text';
 
 type TooltipProps = {
@@ -21,7 +22,7 @@ export function TutorialTooltip({ visible, message, onDismiss, arrow = 'top' }: 
           {arrow === 'top' && <View style={styles.arrowTop} />}
           <View style={styles.tooltip}>
             <View style={styles.iconContainer}>
-              <Ionicons name="bulb" size={18} color="#10B981" />
+              <Ionicons name="bulb" size={18} color={AppColors.accent} />
             </View>
             <ThemedText style={styles.message}>{message}</ThemedText>
             <TouchableOpacity style={styles.gotItButton} onPress={onDismiss}>
@@ -85,7 +86,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1.5,
-    borderColor: '#10B981',
+    borderColor: AppColors.accent,
     maxWidth: 280,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   gotItButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: AppColors.accent,
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 20,

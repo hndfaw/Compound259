@@ -5,7 +5,6 @@ const TUTORIAL_COMPLETED_KEY = '@tutorial_completed';
 
 export function useTutorial() {
   const [showTutorial, setShowTutorial] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
     checkTutorialStatus();
@@ -27,7 +26,6 @@ export function useTutorial() {
     try {
       await AsyncStorage.setItem(TUTORIAL_COMPLETED_KEY, 'true');
       setShowTutorial(false);
-      setCurrentStep(0);
     } catch (error) {
       console.error('Error saving tutorial status:', error);
     }
@@ -37,14 +35,9 @@ export function useTutorial() {
     try {
       await AsyncStorage.removeItem(TUTORIAL_COMPLETED_KEY);
       setShowTutorial(true);
-      setCurrentStep(0);
     } catch (error) {
       console.error('Error resetting tutorial:', error);
     }
-  };
-
-  const nextStep = () => {
-    setCurrentStep((prev) => prev + 1);
   };
 
   const skipTutorial = () => {
@@ -53,8 +46,6 @@ export function useTutorial() {
 
   return {
     showTutorial,
-    currentStep,
-    nextStep,
     skipTutorial,
     resetTutorial,
   };

@@ -24,24 +24,15 @@ import ViewShot from 'react-native-view-shot';
 import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { SavedCalculation, useCalculations } from '@/hooks/use-calculations';
+import { formatFull, formatWhole } from '@/utils/format';
+import { AppColors } from '@/constants/tokens';
 
-const GREEN_ACCENT = '#10B981';
+const GREEN_ACCENT = AppColors.accent;
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(isFinite(value) ? value : 0);
-
-const formatCurrencyFull = (value: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(isFinite(value) ? value : 0);
+// Aliased to the shared helpers so the existing call sites read unchanged.
+const formatCurrency = formatWhole;
+const formatCurrencyFull = formatFull;
 
 export default function SavedScreen() {
   const { calculations, isLoading, updateCalculation, deleteCalculation, refreshCalculations } = useCalculations();

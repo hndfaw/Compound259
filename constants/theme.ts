@@ -5,8 +5,10 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#10B981';
-const tintColorDark = '#10B981';
+import { AppColors } from '@/constants/tokens';
+
+const tintColorLight = AppColors.accent;
+const tintColorDark = AppColors.accent;
 
 export const Colors = {
   light: {

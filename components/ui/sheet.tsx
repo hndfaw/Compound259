@@ -1,17 +1,16 @@
 import React from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  StyleSheet,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
 
-/** Bottom sheet: dims the screen, slides up a rounded panel with a grab handle. */
+/**
+ * Bottom sheet: dims the screen, slides up a rounded panel with a grab handle.
+ *
+ * The dim layer is an absolute-fill Pressable rendered *behind* the panel (not a
+ * parent wrapping it). Wrapping the content in a touchable made buttons need two
+ * taps while the keyboard was open — the first tap was swallowed to dismiss the
+ * keyboard. As a sibling, taps on Cancel/Save register on the first press.
+ */
 export function Sheet({
   visible,
   onClose,
@@ -25,19 +24,13 @@ export function Sheet({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <TouchableOpacity style={[styles.overlay, { backgroundColor: theme.overlay }]} activeOpacity={1} onPress={onClose}>
-          <TouchableWithoutFeedback>
-            <View
-              style={[
-                styles.sheet,
-                { backgroundColor: theme.sheet, borderColor: theme.sheetBorder },
-              ]}
-            >
-              <View style={[styles.handle, { backgroundColor: theme.mutedBorder }]} />
-              {children}
-            </View>
-          </TouchableWithoutFeedback>
-        </TouchableOpacity>
+        <View style={styles.overlay}>
+          <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: theme.overlay }]} onPress={onClose} />
+          <View style={[styles.sheet, { backgroundColor: theme.sheet, borderColor: theme.sheetBorder }]}>
+            <View style={[styles.handle, { backgroundColor: theme.mutedBorder }]} />
+            {children}
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -58,22 +51,12 @@ export function Dialog({
   const { theme } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity
-        style={[styles.dialogOverlay, { backgroundColor: theme.overlay }]}
-        activeOpacity={1}
-        onPress={onClose}
-      >
-        <TouchableWithoutFeedback>
-          <View
-            style={[
-              styles.dialog,
-              { backgroundColor: theme.sheet, borderColor: theme.sheetBorder, padding },
-            ]}
-          >
-            {children}
-          </View>
-        </TouchableWithoutFeedback>
-      </TouchableOpacity>
+      <View style={styles.dialogOverlay}>
+        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: theme.overlay }]} onPress={onClose} />
+        <View style={[styles.dialog, { backgroundColor: theme.sheet, borderColor: theme.sheetBorder, padding }]}>
+          {children}
+        </View>
+      </View>
     </Modal>
   );
 }

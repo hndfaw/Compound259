@@ -1,92 +1,82 @@
-import { DarkTheme, ThemeProvider } from '@react-navigation/native';
+import {
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  Manrope_800ExtraBold,
+} from '@expo-google-fonts/manrope';
+import {
+  SpaceGrotesk_400Regular,
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
-import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
+import Toast from 'react-native-toast-message';
 
-import { AppColors } from '@/constants/tokens';
+import { toastConfig } from '@/components/ui/toast-config';
 import { CalculationsProvider } from '@/hooks/use-calculations';
+import { ThemeProvider, useTheme } from '@/hooks/use-theme';
 
-const CustomDarkTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    primary: AppColors.accent,
-    background: '#030712',
-    card: 'transparent',
-    text: '#F8FAFC',
-    border: 'rgba(148, 163, 184, 0.1)',
-    notification: AppColors.accent,
-  },
-};
+SplashScreen.preventAutoHideAsync();
 
-const toastConfig = {
-  success: (props: any) => (
-    <BaseToast
-      {...props}
-      style={{
-        backgroundColor: '#111827',
-        borderLeftWidth: 1,
-        borderRightWidth: 1,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderLeftColor: AppColors.accent,
-        borderRightColor: AppColors.accent,
-        borderTopColor: AppColors.accent,
-        borderBottomColor: AppColors.accent,
-        borderRadius: 12,
-      }}
-      contentContainerStyle={{ paddingHorizontal: 15 }}
-      text1Style={{
-        fontSize: 15,
-        fontWeight: '600',
-        color: '#F9FAFB',
-      }}
-      text2Style={{
-        fontSize: 13,
-        color: '#9CA3AF',
-      }}
-    />
-  ),
-  error: (props: any) => (
-    <ErrorToast
-      {...props}
-      style={{
-        backgroundColor: '#111827',
-        borderLeftWidth: 1,
-        borderRightWidth: 1,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderLeftColor: '#EF4444',
-        borderRightColor: '#EF4444',
-        borderTopColor: '#EF4444',
-        borderBottomColor: '#EF4444',
-        borderRadius: 12,
-      }}
-      contentContainerStyle={{ paddingHorizontal: 15 }}
-      text1Style={{
-        fontSize: 15,
-        fontWeight: '600',
-        color: '#F9FAFB',
-      }}
-      text2Style={{
-        fontSize: 13,
-        color: '#9CA3AF',
-      }}
-    />
-  ),
-};
+function RootNavigator() {
+  const { theme } = useTheme();
+  const base = theme.mode === 'dark' ? DarkTheme : DefaultTheme;
+  const navTheme = {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: theme.accent,
+      background: theme.bg,
+      card: theme.bg,
+      text: theme.text,
+      border: theme.cardBorder,
+      notification: theme.accent,
+    },
+  };
+
+  return (
+    <NavThemeProvider value={navTheme}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg } }}>
+        <Stack.Screen name="(tabs)" />
+      </Stack>
+      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
+      <Toast config={toastConfig} topOffset={60} />
+    </NavThemeProvider>
+  );
+}
 
 export default function RootLayout() {
+  const [loaded] = useFonts({
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+  });
+
+  useEffect(() => {
+    if (loaded) SplashScreen.hideAsync();
+  }, [loaded]);
+
+  if (!loaded) return null;
+
   return (
-    <CalculationsProvider>
-      <ThemeProvider value={CustomDarkTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-        <StatusBar style="light" />
-        <Toast config={toastConfig} topOffset={60} />
-      </ThemeProvider>
-    </CalculationsProvider>
+    <ThemeProvider>
+      <CalculationsProvider>
+        <RootNavigator />
+      </CalculationsProvider>
+    </ThemeProvider>
   );
 }

@@ -89,7 +89,7 @@ export type Theme = {
 export const darkTheme: Theme = {
   mode: 'dark',
   bg: '#07060D',
-  blobOpacity: 0.42,
+  blobOpacity: 0.2,
   blobs: ['#7CF6B0', '#37D9F5', '#9A7CFF'],
   text: '#F1F4FC',
   sub: '#9AA2C0',

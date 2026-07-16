@@ -29,6 +29,10 @@ export function Screen({
       <ScreenBackground />
       <ScrollView
         showsVerticalScrollIndicator={false}
+        // Without this, a Touchable inside a Modal whose parent is this ScrollView
+        // needs two taps while the keyboard is open — the first tap only dismisses
+        // the keyboard (facebook/react-native#28871).
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingTop: insets.top + 14, paddingHorizontal: 18, paddingBottom: 24 }}
         refreshControl={
           onRefresh ? (

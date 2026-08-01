@@ -1,28 +1,35 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { useFocusEffect } from 'expo-router';
 import * as StoreReview from 'expo-store-review';
-import React, { useMemo, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
-import { Chip } from '@/components/ui/chip';
+import { Collapsible } from '@/components/ui/collapsible';
 import { GlassCard } from '@/components/ui/glass-card';
 import { GradientButton } from '@/components/ui/gradient-button';
 import { GradientText } from '@/components/ui/gradient-text';
 import { GrowthChart } from '@/components/ui/growth-chart';
 import { Icon } from '@/components/ui/icon';
+import { formatFieldValue, Keypad } from '@/components/ui/keypad';
+import { FadeUp, Pop } from '@/components/ui/motion';
 import { Screen } from '@/components/ui/screen';
 import { SegmentBar } from '@/components/ui/segment-bar';
 import { Sheet } from '@/components/ui/sheet';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { Field, FieldKey, FIELDS, FREQ_OPTIONS, fieldAt, fieldIndex, tileLabel } from '@/constants/fields';
 import { Font, Theme } from '@/constants/tokens';
 import { useCalculations } from '@/hooks/use-calculations';
-import { useCountUp } from '@/hooks/use-count-up';
+import { useCountTo } from '@/hooks/use-count-to';
+import { useSaveAction } from '@/hooks/use-save-action';
 import { useTheme } from '@/hooks/use-theme';
-import { breakdown, chartSeries, money, smoothPath } from '@/utils/finance';
+import { commitEntry, nextEntry } from '@/utils/entry';
+import { balanceAt, breakdown, chartSeries, money, smoothPath } from '@/utils/finance';
 
-const FREQ_OPTIONS = ['Annually', 'Semi-annually', 'Quarterly', 'Monthly'];
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-const kLabel = (v: number) => (v >= 1000 ? `$${v / 1000}k` : `$${v}`);
+type Values = Record<FieldKey, number>;
+
+const DEFAULTS: Values = { initial: 10000, monthly: 500, rate: 8, years: 25 };
 
 const haptic = () => {
   if (Platform.OS === 'ios') Haptics.selectionAsync();
@@ -32,12 +39,17 @@ export default function CalculatorScreen() {
   const { theme } = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { saveCalculation, calculations } = useCalculations();
+  const { register } = useSaveAction();
+  const scrollRef = useRef<ScrollView>(null);
 
-  const [initial, setInitial] = useState(10000);
-  const [monthly, setMonthly] = useState(500);
-  const [rate, setRate] = useState(8);
-  const [years, setYears] = useState(25);
+  const [values, setValues] = useState<Values>(DEFAULTS);
   const [freq, setFreq] = useState('Monthly');
+
+  const [focus, setFocus] = useState<FieldKey | null>(null);
+  const [entry, setEntry] = useState('');
+  const [fresh, setFresh] = useState(true);
+  const [baseBalance, setBaseBalance] = useState(0);
+  const [bump, setBump] = useState(0);
 
   const [freqOpen, setFreqOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -45,75 +57,158 @@ export default function CalculatorScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const inputs = useMemo(
-    () => ({ initial, contribution: monthly, ratePct: rate, freq }),
-    [initial, monthly, rate, freq],
+    () => ({ initial: values.initial, contribution: values.monthly, ratePct: values.rate, freq }),
+    [values.initial, values.monthly, values.rate, freq],
   );
-  const b = useMemo(() => breakdown(inputs, years), [inputs, years]);
-  const display = useCountUp(b.balance);
+  const b = useMemo(() => breakdown(inputs, values.years), [inputs, values.years]);
 
   const { line, area } = useMemo(() => {
-    const l = smoothPath(chartSeries(inputs, years));
+    const l = smoothPath(chartSeries(inputs, values.years));
     return { line: l, area: `${l} L 312 150 L 8 150 Z` };
-  }, [inputs, years]);
+  }, [inputs, values.years]);
 
-  const set = (fn: () => void) => () => {
-    haptic();
-    fn();
+  const { value: display, animateTo, set: setDisplay, stop: stopCount } = useCountTo();
+
+  // Latest inputs, so imperative handlers can compute the balance for a state
+  // they are *about* to set without waiting for a re-render.
+  const live = useRef({ values, freq });
+  live.current = { values, freq };
+
+  const balanceWith = useCallback((patch: Partial<Values>, nextFreq?: string) => {
+    const next = { ...live.current.values, ...patch };
+    return balanceAt(
+      { initial: next.initial, contribution: next.monthly, ratePct: next.rate, freq: nextFreq ?? live.current.freq },
+      next.years,
+    );
+  }, []);
+
+  const balanceRef = useRef(b.balance);
+  balanceRef.current = b.balance;
+
+  // Roll the balance up from zero on entry (1.6s the first time, 1.1s when
+  // coming back from another tab — matching `componentDidMount` / `go('calc')`).
+  const firstVisit = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      animateTo(balanceRef.current, firstVisit.current ? 1600 : 1100, 0);
+      firstVisit.current = false;
+    }, [animateTo]),
+  );
+
+  // The tab bar's bookmark button opens the save sheet from outside this tree.
+  useEffect(
+    () =>
+      register(() => {
+        setFocus(null);
+        setEntry('');
+        setFresh(true);
+        setSaveOpen(true);
+      }),
+    [register],
+  );
+
+  // ---- keypad -------------------------------------------------------------
+
+  const openFocus = (key: FieldKey) => {
+    stopCount();
+    const base = Math.round(balanceRef.current);
+    setDisplay(base);
+    setBaseBalance(base);
+    setFocus(key);
+    setEntry(String(live.current.values[key]));
+    setFresh(true);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
-  const ASSUMPTIONS = [
-    {
-      label: 'Initial investment',
-      value: money(initial),
-      dec: () => setInitial((v) => clamp(v - 1000, 0, 1e8)),
-      inc: () => setInitial((v) => clamp(v + 1000, 0, 1e8)),
-      chips: [5000, 10000, 25000, 50000].map((v) => ({ label: kLabel(v), active: initial === v, set: () => setInitial(v) })),
-    },
-    {
-      label: 'Monthly contribution',
-      value: money(monthly),
-      dec: () => setMonthly((v) => clamp(v - 50, 0, 1e6)),
-      inc: () => setMonthly((v) => clamp(v + 50, 0, 1e6)),
-      chips: [100, 250, 500, 1000].map((v) => ({ label: kLabel(v), active: monthly === v, set: () => setMonthly(v) })),
-    },
-    {
-      label: 'Annual return',
-      value: `${rate}%`,
-      dec: () => setRate((v) => clamp(v - 1, 0, 50)),
-      inc: () => setRate((v) => clamp(v + 1, 0, 50)),
-      chips: [4, 6, 8, 10].map((v) => ({ label: `${v}%`, active: rate === v, set: () => setRate(v) })),
-    },
-    {
-      label: 'Time horizon',
-      value: `${years} yrs`,
-      dec: () => setYears((v) => clamp(v - 1, 1, 60)),
-      inc: () => setYears((v) => clamp(v + 1, 1, 60)),
-      chips: [10, 20, 25, 30].map((v) => ({ label: `${v}y`, active: years === v, set: () => setYears(v) })),
-    },
-  ];
+  const closeFocus = () => {
+    // A blank or sub-year horizon would make the projection meaningless.
+    const patch: Partial<Values> = live.current.values.years < 1 ? { years: 1 } : {};
+    if (patch.years !== undefined) setValues((v) => ({ ...v, years: patch.years as number }));
+    setFocus(null);
+    setEntry('');
+    setFresh(true);
+    animateTo(balanceWith(patch), 520);
+  };
 
-  const pickFreq = (f: string) => {
+  const commit = (key: FieldKey, raw: string) => {
+    const { text, value } = commitEntry(fieldAt(key), raw);
+    setEntry(text);
+    setFresh(false);
+    setValues((v) => ({ ...v, [key]: value }));
+    setBump((x) => x + 1);
+    animateTo(balanceWith({ [key]: value }), 280);
+  };
+
+  const pressKey = (char: string) => {
+    if (!focus) return;
+    const next = nextEntry(entry, fresh, char);
+    if (next === null) return;
+    commit(focus, next);
+  };
+
+  const deleteKey = () => {
+    if (!focus) return;
+    commit(focus, entry.slice(0, -1));
+  };
+
+  const clearKey = () => {
+    if (!focus) return;
+    commit(focus, '');
+  };
+
+  const moveFocus = (delta: number) => {
+    if (!focus) return;
+    const i = fieldIndex(focus) + delta;
+    if (i < 0 || i >= FIELDS.length) return;
+    const next = FIELDS[i];
+    setFocus(next.key);
+    setEntry(String(live.current.values[next.key]));
+    setFresh(true);
+  };
+
+  /** Frequency change from inside the keypad — keeps the pad open. */
+  const setFreqLive = (next: string) => {
+    setFreq(next);
+    setBump((x) => x + 1);
+    animateTo(balanceWith({}, next), 420);
+  };
+
+  /** Frequency change from the sheet. */
+  const pickFreq = (next: string) => {
     haptic();
-    setFreq(f);
+    setFreq(next);
     setFreqOpen(false);
+    animateTo(balanceWith({}, next), 650);
   };
+
+  const openFreqSheet = () => {
+    haptic();
+    setFocus(null);
+    setEntry('');
+    setFresh(true);
+    setFreqOpen(true);
+  };
+
+  // ---- save ---------------------------------------------------------------
 
   const handleSave = async () => {
-    if (!saveTitle.trim()) {
+    const title = saveTitle.trim();
+    if (!title) {
       Toast.show({ type: 'error', text1: 'Please enter a title', position: 'top', visibilityTime: 2500 });
       return;
     }
+    if (isSaving) return;
     setIsSaving(true);
     try {
       await saveCalculation({
-        title: saveTitle.trim(),
+        title,
         finalBalance: b.balance,
-        initialDeposit: initial,
+        initialDeposit: values.initial,
         interestEarned: b.interest,
         contributions: b.contributionsTotal,
-        contributionAmount: monthly,
-        timePeriod: years,
-        rateOfReturn: rate,
+        contributionAmount: values.monthly,
+        timePeriod: values.years,
+        rateOfReturn: values.rate,
         frequency: freq,
       });
       if (Platform.OS === 'ios') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -136,95 +231,187 @@ export default function CalculatorScreen() {
     }
   };
 
+  // ---- derived display ----------------------------------------------------
+
+  const focused = focus !== null;
   const growthText = `${b.growthPct >= 0 ? '+' : ''}${b.growthPct.toFixed(0)}%`;
+  const delta = focused ? b.balance - baseBalance : 0;
+  const hasDelta = focused && Math.abs(delta) >= 1;
+  const deltaUp = delta > 0;
+  const horizonYear = new Date().getFullYear() + Math.round(values.years);
+
+  const tileHint = (field: Field) => (field.key === 'years' ? `through ${horizonYear}` : field.hint);
+
+  const header = (
+    <>
+      <Collapsible expanded={!focused} rise={-18}>
+        <FadeUp>
+          <View style={s.headerRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.title}>Compound</Text>
+              <Text style={s.subtitle}>Watch your money grow over time</Text>
+            </View>
+            <ThemeToggle />
+          </View>
+        </FadeUp>
+      </Collapsible>
+
+      <Collapsible expanded={focused} rise={-12}>
+        <View style={s.editingRow}>
+          <Text style={s.editingLabel}>Editing assumptions</Text>
+          <TouchableOpacity onPress={closeFocus} activeOpacity={0.7} accessibilityRole="button" hitSlop={10}>
+            <Text style={s.editingDone}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      </Collapsible>
+    </>
+  );
 
   return (
-    <Screen title="Compound" subtitle="Watch your money grow over time">
-      {/* Result card */}
-      <GlassCard style={s.resultCard}>
-        <View style={s.rowBetween}>
-          <Text style={s.futureLabel}>Future Value</Text>
-          <View style={s.growthBadge}>
-            <Icon name="trending" size={11} color={theme.accent} strokeWidth={2.6} />
-            <Text style={s.growthText}>{growthText}</Text>
-          </View>
-        </View>
-        <GradientText text={money(display)} colors={theme.balanceGrad} style={s.balance} numberOfLines={1} />
-        <SegmentBar principalPct={b.principalRatio} contribPct={b.contribRatio} />
-        <View style={s.legendRow}>
-          <Legend theme={theme} color={theme.cPrincipal} label="Principal" value={money(initial)} />
-          <Legend theme={theme} color={theme.cContrib} label="Contributions" value={money(b.contributionsTotal)} />
-          <Legend theme={theme} color={theme.cInterest} label="Interest" value={money(b.interest)} valueColor={theme.accent} align="flex-end" />
-        </View>
-      </GlassCard>
-
-      {/* Chart card */}
-      <GlassCard style={s.chartCard}>
-        <View style={[s.rowBetween, { paddingHorizontal: 4, marginBottom: 2 }]}>
-          <Text style={s.chartTitle}>Projected growth</Text>
-          <Text style={s.freqBadge}>{freq}</Text>
-        </View>
-        <GrowthChart line={line} area={area} />
-      </GlassCard>
-
-      <Text style={s.sectionLabel}>Assumptions</Text>
-      {ASSUMPTIONS.map((a) => (
-        <GlassCard key={a.label} style={s.inputCard} radius={18}>
+    <Screen header={header} scrollRef={scrollRef}>
+      <FadeUp delay={50} duration={550}>
+        <GlassCard style={s.resultCard}>
           <View style={s.rowBetween}>
-            <View>
-              <Text style={s.inputLabel}>{a.label}</Text>
-              <Text style={s.inputValue}>{a.value}</Text>
-            </View>
-            <View style={s.stepperRow}>
-              <TouchableOpacity onPress={set(a.dec)} activeOpacity={0.8} style={[s.stepBtn, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder }]} accessibilityLabel={`Decrease ${a.label}`}>
-                <Icon name="minus" size={16} color={theme.mutedCol} strokeWidth={2.6} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={set(a.inc)} activeOpacity={0.8} style={[s.stepBtn, { backgroundColor: theme.accentSoft, borderColor: theme.accentBorder }]} accessibilityLabel={`Increase ${a.label}`}>
-                <Icon name="plus" size={16} color={theme.accent} strokeWidth={2.6} />
-              </TouchableOpacity>
+            <Text style={s.futureLabel}>Future Value</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {hasDelta ? (
+                <Pop key={deltaUp ? 'up' : 'down'}>
+                  <View
+                    style={[
+                      s.badge,
+                      {
+                        backgroundColor: deltaUp ? theme.accentSoft : theme.dangerBg,
+                        borderColor: deltaUp ? theme.accentBorder : theme.dangerBorder,
+                      },
+                    ]}
+                  >
+                    <Text style={[s.deltaText, { color: deltaUp ? theme.accent : theme.danger }]}>
+                      {`${deltaUp ? '+' : '-'}${money(Math.abs(delta))}`}
+                    </Text>
+                  </View>
+                </Pop>
+              ) : null}
+              <View style={[s.badge, s.growthBadge]}>
+                <Icon name="trending" size={11} color={theme.accent} strokeWidth={2.6} />
+                <Text style={s.growthText}>{growthText}</Text>
+              </View>
             </View>
           </View>
-          <View style={s.chipRow}>
-            {a.chips.map((c) => (
-              <Chip key={c.label} label={c.label} active={c.active} onPress={set(c.set)} />
+
+          <GradientText text={money(display)} colors={theme.balanceGrad} style={s.balance} numberOfLines={1} />
+
+          <View style={s.chartWrap}>
+            <GrowthChart line={line} area={area} height={84} />
+          </View>
+
+          <Collapsible expanded={!focused} rise={-12}>
+            <View style={{ marginTop: 16 }}>
+              <SegmentBar principalPct={b.principalRatio} contribPct={b.contribRatio} />
+            </View>
+            <View style={s.legendRow}>
+              <Legend theme={theme} color={theme.cPrincipal} label="Principal" value={money(values.initial)} />
+              <Legend theme={theme} color={theme.cContrib} label="Contributions" value={money(b.contributionsTotal)} />
+              <Legend
+                theme={theme}
+                color={theme.cInterest}
+                label="Interest"
+                value={money(b.interest)}
+                valueColor={theme.accent}
+                align="flex-end"
+              />
+            </View>
+          </Collapsible>
+        </GlassCard>
+      </FadeUp>
+
+      <Collapsible expanded={!focused} rise={-22} duration={500} bleed={18}>
+        <Text style={s.sectionLabel}>Assumptions</Text>
+        <View style={{ gap: 10 }}>
+          <View style={s.tileRow}>
+            {FIELDS.slice(0, 2).map((f, i) => (
+              <Tile
+                key={f.key}
+                theme={theme}
+                styles={s}
+                field={f}
+                delay={i * 55}
+                value={formatFieldValue(f, values[f.key])}
+                hint={tileHint(f)}
+                freq={freq}
+                onPress={() => {
+                  haptic();
+                  openFocus(f.key);
+                }}
+                onPickFreq={openFreqSheet}
+              />
             ))}
           </View>
-        </GlassCard>
-      ))}
-
-      {/* Frequency selector */}
-      <TouchableOpacity activeOpacity={0.85} onPress={() => { haptic(); setFreqOpen(true); }}>
-        <GlassCard style={s.freqCard} radius={18}>
-          <View>
-            <Text style={s.inputLabel}>Compounding frequency</Text>
-            <Text style={s.freqValue}>{freq}</Text>
+          <View style={s.tileRow}>
+            {FIELDS.slice(2).map((f, i) => (
+              <Tile
+                key={f.key}
+                theme={theme}
+                styles={s}
+                field={f}
+                delay={(i + 2) * 55}
+                value={formatFieldValue(f, values[f.key])}
+                hint={tileHint(f)}
+                freq={freq}
+                onPress={() => {
+                  haptic();
+                  openFocus(f.key);
+                }}
+                onPickFreq={openFreqSheet}
+              />
+            ))}
           </View>
-          <Icon name="chevronDown" size={18} color={theme.sub} strokeWidth={2.2} />
-        </GlassCard>
-      </TouchableOpacity>
+        </View>
+      </Collapsible>
 
-      <GradientButton onPress={() => { haptic(); setSaveOpen(true); }} style={{ marginBottom: 4 }}>
-        <Icon name="bookmark" size={17} color={theme.btnFg} filled />
-        <Text style={[s.saveBtnText, { color: theme.btnFg }]}>Save this scenario</Text>
-      </GradientButton>
+      {focus ? (
+        <Keypad
+          field={fieldAt(focus)}
+          entry={entry}
+          values={values}
+          freq={freq}
+          bump={bump}
+          onPress={pressKey}
+          onDelete={deleteKey}
+          onClear={clearKey}
+          onMove={moveFocus}
+          onSelect={openFocus}
+          onPickFreq={setFreqLive}
+          onClose={closeFocus}
+        />
+      ) : null}
 
       {/* Frequency sheet */}
       <Sheet visible={freqOpen} onClose={() => setFreqOpen(false)}>
         <Text style={s.sheetTitle}>Compounding frequency</Text>
-        {FREQ_OPTIONS.map((f) => {
-          const active = f === freq;
-          return (
-            <TouchableOpacity
-              key={f}
-              onPress={() => pickFreq(f)}
-              activeOpacity={0.85}
-              style={[s.freqOption, { backgroundColor: active ? theme.accentSoft : theme.mutedBg, borderColor: active ? theme.accentBorder : theme.mutedBorder }]}
-            >
-              <Text style={[s.freqOptionText, { color: active ? theme.accent : theme.text }]}>{f}</Text>
-              {active && <Icon name="check" size={18} color={theme.accent} strokeWidth={2.6} />}
-            </TouchableOpacity>
-          );
-        })}
+        <View style={{ marginTop: 16 }}>
+          {FREQ_OPTIONS.map((f) => {
+            const active = f === freq;
+            return (
+              <TouchableOpacity
+                key={f}
+                onPress={() => pickFreq(f)}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityState={active ? { selected: true } : {}}
+                style={[
+                  s.freqOption,
+                  {
+                    backgroundColor: active ? theme.accentSoft : theme.mutedBg,
+                    borderColor: active ? theme.accentBorder : theme.mutedBorder,
+                  },
+                ]}
+              >
+                <Text style={[s.freqOptionText, { color: active ? theme.accent : theme.text }]}>{f}</Text>
+                {active ? <Icon name="check" size={18} color={theme.accent} strokeWidth={2.6} /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </Sheet>
 
       {/* Save sheet */}
@@ -239,6 +426,8 @@ export default function CalculatorScreen() {
           selectionColor={theme.accent}
           autoFocus
           maxLength={50}
+          returnKeyType="done"
+          onSubmitEditing={handleSave}
           style={[s.textInput, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder, color: theme.text }]}
         />
         <View style={[s.previewBox, { backgroundColor: theme.accentSoft }]}>
@@ -246,15 +435,85 @@ export default function CalculatorScreen() {
           <Text style={[s.previewValue, { color: theme.accent }]}>{money(b.balance)}</Text>
         </View>
         <View style={s.sheetActions}>
-          <TouchableOpacity onPress={() => setSaveOpen(false)} activeOpacity={0.85} style={[s.cancelBtn, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder }]}>
+          <TouchableOpacity
+            onPress={() => setSaveOpen(false)}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            style={[s.cancelBtn, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder }]}
+          >
             <Text style={[s.cancelText, { color: theme.mutedCol }]}>Cancel</Text>
           </TouchableOpacity>
-          <GradientButton onPress={handleSave} disabled={isSaving} style={{ flex: 1.5 }} radius={12} contentStyle={{ paddingVertical: 14 }}>
+          <GradientButton
+            onPress={handleSave}
+            disabled={isSaving}
+            style={{ flex: 1.5 }}
+            radius={12}
+            contentStyle={{ paddingVertical: 14 }}
+          >
             <Text style={[s.saveConfirmText, { color: theme.btnFg }]}>{isSaving ? 'Saving…' : 'Save'}</Text>
           </GradientButton>
         </View>
       </Sheet>
     </Screen>
+  );
+}
+
+/** One assumption tile; the contribution tile swaps its hint for a frequency chip. */
+function Tile({
+  theme,
+  styles: s,
+  field,
+  value,
+  hint,
+  freq,
+  delay,
+  onPress,
+  onPickFreq,
+}: {
+  theme: Theme;
+  styles: ReturnType<typeof makeStyles>;
+  field: Field;
+  value: string;
+  hint: string;
+  freq: string;
+  delay: number;
+  onPress: () => void;
+  onPickFreq: () => void;
+}) {
+  const isContrib = field.key === 'monthly';
+  return (
+    <FadeUp delay={delay} style={{ flex: 1 }}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${tileLabel(field)}, ${value}. Edit`}
+        style={({ pressed }) => [s.tile, pressed && { transform: [{ scale: 0.975 }] }]}
+      >
+        <Text style={s.tileLabel} numberOfLines={1}>
+          {tileLabel(field)}
+        </Text>
+        <Text style={s.tileValue} numberOfLines={1}>
+          {value}
+        </Text>
+        {isContrib ? (
+          <Pressable
+            onPress={onPickFreq}
+            accessibilityRole="button"
+            accessibilityLabel={`Compounding frequency, ${freq}. Change`}
+            style={({ pressed }) => [s.freqChip, pressed && { transform: [{ scale: 0.94 }] }]}
+          >
+            <Text style={s.freqChipText} numberOfLines={1}>
+              {freq}
+            </Text>
+            <Icon name="chevronDown" size={9} color={theme.accent} strokeWidth={3.4} />
+          </Pressable>
+        ) : (
+          <Text style={s.tileHint} numberOfLines={1}>
+            {hint}
+          </Text>
+        )}
+      </Pressable>
+    </FadeUp>
   );
 }
 
@@ -279,14 +538,35 @@ function Legend({
         <View style={{ width: 8, height: 8, borderRadius: 3, backgroundColor: color }} />
         <Text style={{ fontFamily: Font.bodySemi, fontSize: 11, color: theme.sub }}>{label}</Text>
       </View>
-      <Text style={{ fontFamily: Font.display, fontSize: 15, color: valueColor ?? theme.text, marginTop: 3 }}>{value}</Text>
+      <Text style={{ fontFamily: Font.display, fontSize: 15, color: valueColor ?? theme.text, marginTop: 3 }}>
+        {value}
+      </Text>
     </View>
   );
 }
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
-    resultCard: { padding: 16, paddingBottom: 16 },
+    headerRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingBottom: 18 },
+    title: { fontFamily: Font.displayBold, fontSize: 26, lineHeight: 28, letterSpacing: -0.4, color: theme.text },
+    subtitle: { fontFamily: Font.body, fontSize: 12.5, color: theme.sub, marginTop: 3 },
+
+    editingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingBottom: 16,
+    },
+    editingLabel: {
+      fontFamily: Font.bodyBold,
+      fontSize: 11,
+      letterSpacing: 1.4,
+      textTransform: 'uppercase',
+      color: theme.ter,
+    },
+    editingDone: { fontFamily: Font.bodyBlack, fontSize: 13.5, color: theme.accent, padding: 2 },
+
+    resultCard: { paddingTop: 18, paddingHorizontal: 16, paddingBottom: 16, overflow: 'hidden' },
     rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     futureLabel: {
       fontFamily: Font.bodyBold,
@@ -295,72 +575,77 @@ const makeStyles = (theme: Theme) =>
       textTransform: 'uppercase',
       color: theme.sub,
     },
-    growthBadge: {
+    badge: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      backgroundColor: theme.accentSoft,
-      borderWidth: 1,
-      borderColor: theme.accentBorder,
       paddingVertical: 4,
       paddingHorizontal: 9,
       borderRadius: 9,
+      borderWidth: 1,
     },
+    growthBadge: { backgroundColor: theme.accentSoft, borderColor: theme.accentBorder },
     growthText: { fontFamily: Font.displayBold, fontSize: 13, color: theme.accent },
-    balance: {
-      fontFamily: Font.displayBold,
-      fontSize: 42,
-      letterSpacing: -1.5,
-      marginTop: 8,
-      marginBottom: 15,
-    },
+    deltaText: { fontFamily: Font.displayBold, fontSize: 12.5 },
+    balance: { fontFamily: Font.displayBold, fontSize: 42, lineHeight: 51, letterSpacing: -1.5, marginTop: 5 },
+    chartWrap: { marginTop: 14, marginHorizontal: -16 },
     legendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 13 },
-    chartCard: { marginTop: 14, paddingHorizontal: 14, paddingTop: 16, paddingBottom: 12 },
-    chartTitle: { fontFamily: Font.bodySemi, fontSize: 12, color: theme.sub },
-    freqBadge: {
-      fontFamily: Font.bodyBold,
-      fontSize: 11,
-      color: theme.accent,
-      backgroundColor: theme.accentSoft,
-      paddingVertical: 3,
-      paddingHorizontal: 8,
-      borderRadius: 7,
-      overflow: 'hidden',
-    },
+
     sectionLabel: {
       fontFamily: Font.bodyBold,
       fontSize: 12,
       letterSpacing: 1.5,
       textTransform: 'uppercase',
       color: theme.ter,
-      marginTop: 22,
+      marginTop: 20,
       marginBottom: 10,
       marginHorizontal: 4,
     },
-    inputCard: { padding: 15, marginBottom: 11 },
-    inputLabel: {
-      fontFamily: Font.bodySemi,
-      fontSize: 11,
-      letterSpacing: 0.6,
+    tileRow: { flexDirection: 'row', gap: 10 },
+    tile: {
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+      borderRadius: 18,
+      paddingTop: 13,
+      paddingHorizontal: 14,
+      paddingBottom: 12,
+      boxShadow: theme.cardShadow,
+    },
+    tileLabel: {
+      fontFamily: Font.bodyBold,
+      fontSize: 10,
+      letterSpacing: 0.7,
       textTransform: 'uppercase',
       color: theme.sub,
     },
-    inputValue: { fontFamily: Font.display, fontSize: 25, color: theme.text, marginTop: 3 },
-    stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-    stepBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 13,
-      borderWidth: 1,
+    tileValue: { fontFamily: Font.display, fontSize: 23, letterSpacing: -0.5, color: theme.text, marginTop: 7 },
+    tileHint: { fontFamily: Font.bodySemi, fontSize: 10.5, color: theme.ter, marginTop: 3 },
+    freqChip: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      gap: 3,
+      marginTop: 5,
+      backgroundColor: theme.accentSoft,
+      borderWidth: 1,
+      borderColor: theme.accentBorder,
+      paddingVertical: 2,
+      paddingLeft: 7,
+      paddingRight: 5,
+      borderRadius: 7,
     },
-    chipRow: { flexDirection: 'row', gap: 7, marginTop: 14 },
-    freqCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, marginBottom: 16 },
-    freqValue: { fontFamily: Font.display, fontSize: 19, color: theme.text, marginTop: 3 },
-    saveBtnText: { fontFamily: Font.bodyBold, fontSize: 15 },
+    freqChipText: { fontFamily: Font.bodyBold, fontSize: 10, color: theme.accent },
+
     sheetTitle: { fontFamily: Font.bodyBold, fontSize: 18, color: theme.text, textAlign: 'center' },
-    sheetSubtitle: { fontFamily: Font.body, fontSize: 13.5, color: theme.sub, textAlign: 'center', marginTop: 6, marginBottom: 18 },
+    sheetSubtitle: {
+      fontFamily: Font.body,
+      fontSize: 13.5,
+      color: theme.sub,
+      textAlign: 'center',
+      marginTop: 6,
+      marginBottom: 18,
+    },
     freqOption: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -370,7 +655,6 @@ const makeStyles = (theme: Theme) =>
       borderRadius: 14,
       borderWidth: 1,
       marginBottom: 8,
-      marginTop: 8,
     },
     freqOptionText: { fontFamily: Font.bodySemi, fontSize: 15 },
     textInput: {

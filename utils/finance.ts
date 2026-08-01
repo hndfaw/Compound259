@@ -87,9 +87,12 @@ export const smoothPath = (p: [number, number][]): string => {
   return d;
 };
 
-/** Compact money like the design: $1,234 / $1.23M / $4.56B / $1.00T */
+/** Compact money like the design: $1,234 / $4.56B / $1.00T */
 export const money = (n: number): string => {
-  const rounded = Math.round(n || 0);
+  // A non-finite input would otherwise render as "$InfinityT" / "$NaN".
+  if (!Number.isFinite(n)) return '$0';
+  // `|| 0` folds negative zero away, which would otherwise print as "$-0".
+  const rounded = Math.round(n) || 0;
   const abs = Math.abs(rounded);
   if (abs >= 1e12) return '$' + (rounded / 1e12).toFixed(2) + 'T';
   if (abs >= 1e9) return '$' + (rounded / 1e9).toFixed(2) + 'B';

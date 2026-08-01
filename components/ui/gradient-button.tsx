@@ -4,7 +4,11 @@ import { StyleProp, TouchableOpacity, ViewStyle } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
 
-/** Accent gradient surface used for primary actions and balance panels. */
+/**
+ * Primary action surface. Aurora paints the accent gradient; Daylight's
+ * `--btn-grad` is a single solid colour, so a one-entry palette is repeated to
+ * keep LinearGradient happy while rendering flat.
+ */
 export function GradientButton({
   onPress,
   children,
@@ -13,6 +17,7 @@ export function GradientButton({
   colors,
   radius = 16,
   disabled,
+  shadow = false,
 }: {
   onPress?: () => void;
   children?: React.ReactNode;
@@ -21,16 +26,20 @@ export function GradientButton({
   colors?: readonly string[];
   radius?: number;
   disabled?: boolean;
+  /** Apply the spec's `--btn-shadow` glow. */
+  shadow?: boolean;
 }) {
   const { theme } = useTheme();
-  const gradientColors = (colors ?? theme.btnGrad) as [string, string, ...string[]];
+  const palette = colors ?? theme.btnGrad;
+  const gradientColors = (palette.length > 1 ? palette : [palette[0], palette[0]]) as [string, string, ...string[]];
 
   return (
     <TouchableOpacity
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.85}
-      style={[{ borderRadius: radius, overflow: 'hidden' }, style]}
+      accessibilityRole={onPress ? 'button' : undefined}
+      style={[{ borderRadius: radius, overflow: 'hidden' }, shadow && { boxShadow: theme.btnShadow }, style]}
     >
       <LinearGradient
         colors={gradientColors}

@@ -6,16 +6,17 @@ A compound interest calculator for iOS. Enter a starting amount, monthly contrib
 
 ## Screenshots
 
-| Calculator (dark) | Calculator (light) | Saved records | Learn |
-|:---:|:---:|:---:|:---:|
-| ![Calculator in dark mode](docs/screenshots/dark-home.png) | ![Calculator in light mode](docs/screenshots/light-home.png) | ![Saved records](docs/screenshots/dark-saved.png) | ![Learn tab](docs/screenshots/learn.png) |
+| Calculator (dark) | Calculator (light) | Keypad | Saved records | Learn |
+|:---:|:---:|:---:|:---:|:---:|
+| ![Calculator in dark mode](docs/screenshots/dark-home.png) | ![Calculator in light mode](docs/screenshots/light-home.png) | ![Entering a contribution on the built-in keypad](docs/screenshots/keypad.png) | ![Saved records](docs/screenshots/dark-saved.png) | ![Learn tab](docs/screenshots/learn.png) |
 
 ## Features
 
 - Future value with regular contributions and annual, semi-annual, quarterly, or monthly compounding
 - Growth chart that shows how the balance builds over the years
 - Breakdown of principal, contributions, and interest earned
-- Quick inputs with steppers and preset amounts, so there is no typing
+- A built-in keypad for the four assumptions, with Prev and Next to move between them without closing it
+- A running total of what each edit adds to or takes off the final balance
 - Save scenarios, compare them later, and share them as images
 - Learn tab that explains compound interest in plain terms
 - Dark and light themes

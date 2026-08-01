@@ -60,7 +60,6 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const count = Math.max(1, routes.length);
 
   const slide = useRef(new Animated.Value(activeIndex)).current;
-  const action = useRef(new Animated.Value(onCalc ? 1 : 0)).current;
 
   useEffect(() => {
     const anim = Animated.timing(slide, {
@@ -72,17 +71,6 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
     anim.start();
     return () => anim.stop();
   }, [activeIndex, slide]);
-
-  useEffect(() => {
-    const anim = Animated.timing(action, {
-      toValue: onCalc ? 1 : 0,
-      duration: 480,
-      easing: Easing.bezier(0.34, 1.2, 0.44, 1),
-      useNativeDriver: false,
-    });
-    anim.start();
-    return () => anim.stop();
-  }, [onCalc, action]);
 
   return (
     <View
@@ -189,24 +177,35 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
         </View>
       </View>
 
-      <Animated.View
+      {/*
+       * Fixed size, always visible. This used to collapse to zero width on the
+       * other tabs, which resized the capsule every frame — and resizing a
+       * capsule that contains a blur view, a rounded mask and a shadow made the
+       * bar visibly pump on each switch. Nothing here changes size any more, so
+       * there is no layout for the bar to animate and nothing to stutter.
+       */}
+      <View
         style={{
-          width: action.interpolate({ inputRange: [0, 1], outputRange: [0, ACTION_SIZE] }),
-          marginLeft: action.interpolate({ inputRange: [0, 1], outputRange: [0, ACTION_GAP] }),
+          width: ACTION_SIZE,
+          marginLeft: ACTION_GAP,
           height: ACTION_SIZE,
           flexShrink: 0,
           borderRadius: 999,
           overflow: 'hidden',
-          opacity: action,
-          transform: [{ scale: action.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
           boxShadow: theme.barShadow,
         }}
-        pointerEvents={onCalc ? 'auto' : 'none'}
       >
         <TouchableOpacity
           onPress={() => {
             if (Platform.OS === 'ios') Haptics.selectionAsync();
-            request();
+            // Reachable from any tab: hop to the calculator first so the sheet
+            // opens over the numbers it is about to save.
+            if (!onCalc) {
+              navigation.navigate('index' as never);
+              setTimeout(request, 260);
+            } else {
+              request();
+            }
           }}
           activeOpacity={0.8}
           accessibilityRole="button"
@@ -218,7 +217,7 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
             <Icon name="bookmark" size={21} color={theme.accent} filled />
           </View>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
     </View>
   );
 }

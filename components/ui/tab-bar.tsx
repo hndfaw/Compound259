@@ -2,8 +2,8 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, LayoutChangeEvent, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Font, Theme } from '@/constants/tokens';
@@ -18,7 +18,6 @@ const TABS: Record<string, { label: string; icon: IconName }> = {
   learn: { label: 'Learn', icon: 'book' },
 };
 
-const ORDER = ['index', 'explore', 'learn'];
 const SPRINGY = Easing.bezier(0.34, 1.24, 0.42, 1);
 const ACTION_SIZE = 55;
 const ACTION_GAP = 9;
@@ -52,11 +51,14 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const { request } = useSaveAction();
 
   const routes = state.routes.filter((r) => TABS[r.name]);
-  const activeName = state.routes[state.index]?.name ?? 'index';
-  const activeIndex = Math.max(0, ORDER.indexOf(activeName));
-  const onCalc = activeName === 'index';
+  // Index into the rendered list, not into a hard-coded order: the navigator's
+  // route order is its own business, and a name we don't recognise must not
+  // silently resolve to 0 and yank the pill back to the first tab.
+  const activeKey = state.routes[state.index]?.key;
+  const activeIndex = Math.max(0, routes.findIndex((r) => r.key === activeKey));
+  const onCalc = routes[activeIndex]?.name === 'index';
+  const count = Math.max(1, routes.length);
 
-  const [rowWidth, setRowWidth] = useState(0);
   const slide = useRef(new Animated.Value(activeIndex)).current;
   const action = useRef(new Animated.Value(onCalc ? 1 : 0)).current;
 
@@ -65,7 +67,7 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
       toValue: activeIndex,
       duration: 500,
       easing: SPRINGY,
-      useNativeDriver: true,
+      useNativeDriver: false,
     });
     anim.start();
     return () => anim.stop();
@@ -82,13 +84,6 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
     return () => anim.stop();
   }, [onCalc, action]);
 
-  const onRowLayout = (e: LayoutChangeEvent) => {
-    const w = e.nativeEvent.layout.width;
-    if (w > 0 && w !== rowWidth) setRowWidth(w);
-  };
-
-  const cellWidth = routes.length > 0 ? rowWidth / routes.length : 0;
-
   return (
     <View
       style={{
@@ -103,46 +98,47 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
       <View style={{ flex: 1, minWidth: 0, padding: 4, borderRadius: 999, overflow: 'hidden', boxShadow: theme.barShadow }}>
         <Glass theme={theme} radius={999} />
         {/* Positioned above the glass stack, matching the spec's `z-index: 1`. */}
-        <View style={{ flexDirection: 'row', flex: 1, position: 'relative', zIndex: 1 }} onLayout={onRowLayout}>
-          {cellWidth > 0 ? (
-            <Animated.View
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                width: cellWidth,
-                borderRadius: 999,
-                overflow: 'hidden',
-                borderWidth: 0.5,
-                borderColor: theme.pillBorder,
-                boxShadow: theme.pillShine,
-                transform: [
-                  {
-                    translateX: slide.interpolate({
-                      inputRange: [0, Math.max(1, routes.length - 1)],
-                      outputRange: [0, cellWidth * Math.max(1, routes.length - 1)],
-                    }),
-                  },
-                ],
-              }}
-            >
-              <LinearGradient
-                colors={
-                  (theme.pillGrad.length > 1
-                    ? theme.pillGrad
-                    : [theme.pillGrad[0], theme.pillGrad[0]]) as [string, string, ...string[]]
-                }
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-            </Animated.View>
-          ) : null}
+        <View style={{ flexDirection: 'row', flex: 1, position: 'relative', zIndex: 1 }}>
+          {/*
+           * Positioned in percentages rather than measured pixels. Measuring
+           * meant an onLayout -> setState on every frame that the save button
+           * collapsed (it resizes this capsule), which re-rendered the bar ~30
+           * times mid-transition and rewrote the pill's own target as it moved.
+           * Percentages track the capsule's width for free.
+           */}
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              width: `${100 / count}%`,
+              left: slide.interpolate({
+                inputRange: [0, Math.max(1, count - 1)],
+                outputRange: ['0%', `${((count - 1) * 100) / count}%`],
+              }),
+              borderRadius: 999,
+              overflow: 'hidden',
+              borderWidth: 0.5,
+              borderColor: theme.pillBorder,
+              boxShadow: theme.pillShine,
+            }}
+          >
+            <LinearGradient
+              colors={
+                (theme.pillGrad.length > 1
+                  ? theme.pillGrad
+                  : [theme.pillGrad[0], theme.pillGrad[0]]) as [string, string, ...string[]]
+              }
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
 
           {routes.map((route) => {
             const config = TABS[route.name];
-            const focused = route.name === activeName;
+            const focused = route.key === activeKey;
             const color = focused ? theme.accent : theme.tabIcon;
 
             const onPress = () => {

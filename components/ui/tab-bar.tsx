@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Reanimated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Font, Theme } from '@/constants/tokens';
@@ -22,15 +23,32 @@ const SPRINGY = Easing.bezier(0.34, 1.24, 0.42, 1);
 const ACTION_SIZE = 55;
 const ACTION_GAP = 9;
 
+/**
+ * Reanimated drives the capsule's resize as a declarative layout transition on
+ * the UI thread, rather than us animating a width prop frame by frame from JS.
+ */
+const EXPAND = LinearTransition.duration(420);
+
+/** Wider than any phone, so the capsule's blur never has to resize. */
+const BLUR_OVERSCAN = 1200;
+
 /** Blur + tint + shine stack shared by the capsule and the save button. */
-function Glass({ theme, radius }: { theme: Theme; radius: number }) {
+function Glass({ theme, radius, wideBlur = false }: { theme: Theme; radius: number; wideBlur?: boolean }) {
   return (
     <>
       <BlurView
         intensity={40}
         tint={theme.blurTint}
         experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
-        style={[StyleSheet.absoluteFill, { borderRadius: radius }]}
+        style={
+          wideBlur
+            ? // Anchored left and oversized: only the capsule's right edge
+              // moves, so the blur is re-clipped rather than re-rendered.
+              // Resizing a UIVisualEffectView every frame is what made the bar
+              // stutter when this collapse was animated by hand.
+              { position: 'absolute', top: 0, bottom: 0, left: 0, width: BLUR_OVERSCAN }
+            : [StyleSheet.absoluteFill, { borderRadius: radius }]
+        }
       />
       <View style={[StyleSheet.absoluteFill, { borderRadius: radius, backgroundColor: theme.glassTint }]} />
       <View
@@ -83,16 +101,18 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
         alignItems: 'center',
       }}
     >
-      <View style={{ flex: 1, minWidth: 0, padding: 4, borderRadius: 999, overflow: 'hidden', boxShadow: theme.barShadow }}>
-        <Glass theme={theme} radius={999} />
+      <Reanimated.View
+        layout={EXPAND}
+        style={{ flex: 1, minWidth: 0, padding: 4, borderRadius: 999, overflow: 'hidden', boxShadow: theme.barShadow }}
+      >
+        <Glass theme={theme} radius={999} wideBlur />
         {/* Positioned above the glass stack, matching the spec's `z-index: 1`. */}
         <View style={{ flexDirection: 'row', flex: 1, position: 'relative', zIndex: 1 }}>
           {/*
-           * Positioned in percentages rather than measured pixels. Measuring
-           * meant an onLayout -> setState on every frame that the save button
-           * collapsed (it resizes this capsule), which re-rendered the bar ~30
-           * times mid-transition and rewrote the pill's own target as it moved.
-           * Percentages track the capsule's width for free.
+           * Positioned in percentages rather than measured pixels, so it tracks
+           * the capsule's width for free. Measuring meant an onLayout ->
+           * setState every frame the capsule resized, which re-rendered the bar
+           * and rewrote the pill's own target mid-flight.
            */}
           <Animated.View
             pointerEvents="none"
@@ -153,13 +173,7 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
                   alignItems: 'center',
                 }}
               >
-                <View
-                  style={{
-                    alignItems: 'center',
-                    gap: 2,
-                    transform: [{ translateY: focused ? -1 : 0 }],
-                  }}
-                >
+                <View style={{ alignItems: 'center', gap: 2, transform: [{ translateY: focused ? -1 : 0 }] }}>
                   <Icon
                     name={config.icon}
                     size={19}
@@ -175,49 +189,42 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
             );
           })}
         </View>
-      </View>
+      </Reanimated.View>
 
-      {/*
-       * Fixed size, always visible. This used to collapse to zero width on the
-       * other tabs, which resized the capsule every frame — and resizing a
-       * capsule that contains a blur view, a rounded mask and a shadow made the
-       * bar visibly pump on each switch. Nothing here changes size any more, so
-       * there is no layout for the bar to animate and nothing to stutter.
-       */}
-      <View
-        style={{
-          width: ACTION_SIZE,
-          marginLeft: ACTION_GAP,
-          height: ACTION_SIZE,
-          flexShrink: 0,
-          borderRadius: 999,
-          overflow: 'hidden',
-          boxShadow: theme.barShadow,
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => {
-            if (Platform.OS === 'ios') Haptics.selectionAsync();
-            // Reachable from any tab: hop to the calculator first so the sheet
-            // opens over the numbers it is about to save.
-            if (!onCalc) {
-              navigation.navigate('index' as never);
-              setTimeout(request, 260);
-            } else {
-              request();
-            }
+      {/* Only on the calculator, where there is something to save. Mounting and
+          unmounting lets the capsule's layout transition do the expanding. */}
+      {onCalc ? (
+        <Reanimated.View
+          entering={FadeIn.duration(240)}
+          exiting={FadeOut.duration(160)}
+          layout={EXPAND}
+          style={{
+            width: ACTION_SIZE,
+            marginLeft: ACTION_GAP,
+            height: ACTION_SIZE,
+            flexShrink: 0,
+            borderRadius: 999,
+            overflow: 'hidden',
+            boxShadow: theme.barShadow,
           }}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Save this scenario"
-          style={{ width: ACTION_SIZE, height: ACTION_SIZE, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Glass theme={theme} radius={999} />
-          <View style={{ position: 'relative', zIndex: 1 }}>
-            <Icon name="bookmark" size={21} color={theme.accent} filled />
-          </View>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            onPress={() => {
+              if (Platform.OS === 'ios') Haptics.selectionAsync();
+              request();
+            }}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Save this scenario"
+            style={{ width: ACTION_SIZE, height: ACTION_SIZE, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Glass theme={theme} radius={999} />
+            <View style={{ position: 'relative', zIndex: 1 }}>
+              <Icon name="bookmark" size={21} color={theme.accent} filled />
+            </View>
+          </TouchableOpacity>
+        </Reanimated.View>
+      ) : null}
     </View>
   );
 }

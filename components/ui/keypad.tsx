@@ -47,6 +47,11 @@ const haptic = () => {
   if (Platform.OS === 'ios') Haptics.selectionAsync();
 };
 
+/** Softer thud for dismissing the pad, distinct from the per-key tick. */
+const dismissHaptic = () => {
+  if (Platform.OS === 'ios') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+};
+
 /** Format a field's committed value the way its tile shows it. */
 export const formatFieldValue = (field: Field, value: number): string => {
   if (field.key === 'rate') return `${Math.round(value * 10) / 10}%`;
@@ -193,6 +198,9 @@ export function Keypad({
         if (g.dy > DISMISS_AT) {
           if (closing.current) return;
           closing.current = true;
+          // Fire as the pad commits to leaving, not when it lands, so the tap
+          // and the feedback line up.
+          dismissHaptic();
           Animated.timing(translate, {
             toValue: OFFSCREEN,
             duration: 200,
@@ -266,7 +274,14 @@ export function Keypad({
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.root}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close keypad" />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => {
+            dismissHaptic();
+            onClose();
+          }}
+          accessibilityLabel="Close keypad"
+        />
 
         <Animated.View
           style={[

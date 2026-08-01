@@ -54,9 +54,15 @@ export const breakdown = (inputs: FinanceInputs, years: number): Breakdown => {
   return { balance, contributionsTotal, interest, growthPct, principalRatio, contribRatio, interestRatio };
 };
 
-/** Chart sample points in a 320x150 viewBox (y inverted for SVG). */
-export const chartSeries = (inputs: FinanceInputs, years: number): [number, number][] => {
-  const count = Math.min(28, Math.max(2, years + 1));
+/**
+ * Chart sample points in a 320x150 viewBox (y inverted for SVG).
+ *
+ * `samples` fixes the point count. The chart passes a constant so successive
+ * series always line up index-for-index and can be tweened between; leaving it
+ * off keeps the year-aligned sampling.
+ */
+export const chartSeries = (inputs: FinanceInputs, years: number, samples?: number): [number, number][] => {
+  const count = samples ?? Math.min(28, Math.max(2, years + 1));
   const max = Math.max(balanceAt(inputs, years), 1);
   const points: [number, number][] = [];
   for (let i = 0; i < count; i++) {

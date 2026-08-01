@@ -1,6 +1,7 @@
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/ui/glass-card';
 import { GradientButton } from '@/components/ui/gradient-button';
@@ -149,7 +150,16 @@ export default function LearnScreen() {
       </View>
 
       <View style={{ marginTop: 20 }}>
-        <GradientButton onPress={() => router.navigate('/')} contentStyle={{ paddingVertical: 17 }} shadow>
+        <GradientButton
+          onPress={() => {
+            // A firmer tap than the selection ticks elsewhere, since this one
+            // moves you to another screen.
+            if (Platform.OS === 'ios') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            router.navigate('/');
+          }}
+          contentStyle={{ paddingVertical: 17 }}
+          shadow
+        >
           <Text style={[s.primaryBtnText, { color: theme.btnFg }]}>Try it in the calculator</Text>
         </GradientButton>
       </View>

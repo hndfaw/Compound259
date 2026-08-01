@@ -306,7 +306,10 @@ function ActionButton({
   const color = danger ? theme.danger : theme.mutedCol;
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={() => {
+        if (Platform.OS === 'ios') Haptics.selectionAsync();
+        onPress();
+      }}
       activeOpacity={0.8}
       accessibilityRole="button"
       accessibilityLabel={label}

@@ -13,7 +13,7 @@ import { GradientText } from '@/components/ui/gradient-text';
 import { GrowthChart } from '@/components/ui/growth-chart';
 import { Icon } from '@/components/ui/icon';
 import { formatFieldValue, Keypad } from '@/components/ui/keypad';
-import { FadeUp, Pop } from '@/components/ui/motion';
+import { FadeUp } from '@/components/ui/motion';
 import { Screen } from '@/components/ui/screen';
 import { SegmentBar } from '@/components/ui/segment-bar';
 import { Sheet } from '@/components/ui/sheet';
@@ -25,11 +25,13 @@ import { useCountTo } from '@/hooks/use-count-to';
 import { useSaveAction } from '@/hooks/use-save-action';
 import { useTheme } from '@/hooks/use-theme';
 import { commitEntry, nextEntry } from '@/utils/entry';
-import { balanceAt, breakdown, chartSeries, money, smoothPath } from '@/utils/finance';
+import { balanceAt, breakdown, chartSeries, money } from '@/utils/finance';
 
 type Values = Record<FieldKey, number>;
 
 const DEFAULTS: Values = { initial: 10000, monthly: 500, rate: 8, years: 25 };
+/** Fixed chart resolution, so every series can tween into the next. */
+const CHART_SAMPLES = 28;
 
 const haptic = () => {
   if (Platform.OS === 'ios') Haptics.selectionAsync();
@@ -48,7 +50,6 @@ export default function CalculatorScreen() {
   const [focus, setFocus] = useState<FieldKey | null>(null);
   const [entry, setEntry] = useState('');
   const [fresh, setFresh] = useState(true);
-  const [baseBalance, setBaseBalance] = useState(0);
   const [bump, setBump] = useState(0);
 
   const [freqOpen, setFreqOpen] = useState(false);
@@ -62,10 +63,12 @@ export default function CalculatorScreen() {
   );
   const b = useMemo(() => breakdown(inputs, values.years), [inputs, values.years]);
 
-  const { line, area } = useMemo(() => {
-    const l = smoothPath(chartSeries(inputs, values.years));
-    return { line: l, area: `${l} L 312 150 L 8 150 Z` };
-  }, [inputs, values.years]);
+  // A constant sample count keeps successive series index-aligned so the chart
+  // can tween between shapes rather than snapping.
+  const chartPoints = useMemo(
+    () => chartSeries(inputs, values.years, CHART_SAMPLES),
+    [inputs, values.years],
+  );
 
   const { value: display, animateTo, set: setDisplay, stop: stopCount } = useCountTo();
 
@@ -110,10 +113,10 @@ export default function CalculatorScreen() {
   // ---- keypad -------------------------------------------------------------
 
   const openFocus = (key: FieldKey) => {
+    // Pin the readout to the current balance so the count-up does not keep
+    // running underneath the keypad.
     stopCount();
-    const base = Math.round(balanceRef.current);
-    setDisplay(base);
-    setBaseBalance(base);
+    setDisplay(Math.round(balanceRef.current));
     setFocus(key);
     setEntry(String(live.current.values[key]));
     setFresh(true);
@@ -235,9 +238,6 @@ export default function CalculatorScreen() {
 
   const focused = focus !== null;
   const growthText = `${b.growthPct >= 0 ? '+' : ''}${b.growthPct.toFixed(0)}%`;
-  const delta = focused ? b.balance - baseBalance : 0;
-  const hasDelta = focused && Math.abs(delta) >= 1;
-  const deltaUp = delta > 0;
   const horizonYear = new Date().getFullYear() + Math.round(values.years);
 
   const tileHint = (field: Field) => (field.key === 'years' ? `through ${horizonYear}` : field.hint);
@@ -273,35 +273,16 @@ export default function CalculatorScreen() {
         <GlassCard style={s.resultCard}>
           <View style={s.rowBetween}>
             <Text style={s.futureLabel}>Future Value</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              {hasDelta ? (
-                <Pop key={deltaUp ? 'up' : 'down'}>
-                  <View
-                    style={[
-                      s.badge,
-                      {
-                        backgroundColor: deltaUp ? theme.accentSoft : theme.dangerBg,
-                        borderColor: deltaUp ? theme.accentBorder : theme.dangerBorder,
-                      },
-                    ]}
-                  >
-                    <Text style={[s.deltaText, { color: deltaUp ? theme.accent : theme.danger }]}>
-                      {`${deltaUp ? '+' : '-'}${money(Math.abs(delta))}`}
-                    </Text>
-                  </View>
-                </Pop>
-              ) : null}
-              <View style={[s.badge, s.growthBadge]}>
-                <Icon name="trending" size={11} color={theme.accent} strokeWidth={2.6} />
-                <Text style={s.growthText}>{growthText}</Text>
-              </View>
+            <View style={[s.badge, s.growthBadge]}>
+              <Icon name="trending" size={11} color={theme.accent} strokeWidth={2.6} />
+              <Text style={s.growthText}>{growthText}</Text>
             </View>
           </View>
 
           <GradientText text={money(display)} colors={theme.balanceGrad} style={s.balance} numberOfLines={1} />
 
           <View style={s.chartWrap}>
-            <GrowthChart line={line} area={area} height={84} />
+            <GrowthChart points={chartPoints} height={84} />
           </View>
 
           <Collapsible expanded={!focused} rise={-12}>
@@ -586,7 +567,6 @@ const makeStyles = (theme: Theme) =>
     },
     growthBadge: { backgroundColor: theme.accentSoft, borderColor: theme.accentBorder },
     growthText: { fontFamily: Font.displayBold, fontSize: 13, color: theme.accent },
-    deltaText: { fontFamily: Font.displayBold, fontSize: 12.5 },
     balance: { fontFamily: Font.displayBold, fontSize: 42, lineHeight: 51, letterSpacing: -1.5, marginTop: 5 },
     chartWrap: { marginTop: 14, marginHorizontal: -16 },
     legendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 13 },

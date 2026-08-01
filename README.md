@@ -61,6 +61,7 @@ constants/        # Design tokens and themes
 hooks/            # Custom hooks
 utils/            # Finance math and formatting
 docs/screenshots/ # README images
+docs/app-store/   # 1320x2868 listing images for App Store Connect
 ```
 
 ## License

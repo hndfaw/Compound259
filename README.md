@@ -6,9 +6,9 @@ A compound interest calculator for iOS. Enter a starting amount, monthly contrib
 
 ## Screenshots
 
-| Calculator (dark) | Calculator (light) | Keypad | Saved records | Learn |
-|:---:|:---:|:---:|:---:|:---:|
-| ![Calculator in dark mode](docs/screenshots/dark-home.png) | ![Calculator in light mode](docs/screenshots/light-home.png) | ![Entering a contribution on the built-in keypad](docs/screenshots/keypad.png) | ![Saved records](docs/screenshots/dark-saved.png) | ![Learn tab](docs/screenshots/learn.png) |
+| Calculator (dark) | Calculator (light) | Keypad | Saved records | Share card | Learn |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| ![Calculator in dark mode](docs/screenshots/dark-home.png) | ![Calculator in light mode](docs/screenshots/light-home.png) | ![Entering a contribution on the built-in keypad](docs/screenshots/keypad.png) | ![Saved records](docs/screenshots/dark-saved.png) | ![Shareable summary card](docs/screenshots/share.png) | ![Learn tab](docs/screenshots/learn.png) |
 
 ## Features
 
@@ -16,7 +16,7 @@ A compound interest calculator for iOS. Enter a starting amount, monthly contrib
 - Growth chart that shows how the balance builds over the years
 - Breakdown of principal, contributions, and interest earned
 - A built-in keypad for the four assumptions, with Prev and Next to move between them without closing it
-- A running total of what each edit adds to or takes off the final balance
+- A ruled time axis that adapts to the horizon, from months on a short run to decades on a long one
 - Save scenarios, compare them later, and share them as images
 - Learn tab that explains compound interest in plain terms
 - Dark and light themes

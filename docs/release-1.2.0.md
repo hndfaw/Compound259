@@ -1,9 +1,8 @@
 # Release 1.2.0
 
-Everything below is prepared and waiting. The App Store Connect steps are the
-only part that has to be done by hand, since it needs the account.
+The listing is filled in and saved. Nothing has been sent to review.
 
-## What's New (draft, needs your approval before it goes in)
+## What's New (in App Store Connect now, change it if you want)
 
 > The app has been redesigned.
 >
@@ -23,33 +22,47 @@ only part that has to be done by hand, since it needs the account.
 Captured on an iPhone 17 Pro Max simulator. Six screens, in the order they are
 worth showing:
 
-1. `dark-home` — calculator, dark
-2. `keypad` — keypad open on a contribution
-3. `dark-saved` — saved records
-4. `share` — the shareable summary card
-5. `learn` — Learn tab
-6. `light-home` — calculator, light
+1. `dark-home`, calculator, dark
+2. `keypad`, keypad open on a contribution
+3. `dark-saved`, saved records
+4. `share`, the shareable summary card
+5. `learn`, Learn tab
+6. `light-home`, calculator, light
 
 Both iPhone slots are covered:
 
-- `docs/app-store/6.9/` — 1320x2868, for the 6.9" slot
-- `docs/app-store/6.5/` — 1242x2688, for the 6.5" slot
+- `docs/app-store/6.9/`: 1320x2868, for the 6.9" slot
+- `docs/app-store/6.5/`: 1242x2688, for the 6.5" slot
 
 The 6.5" set is the same captures fitted to that slot's exact dimensions, which
 costs about half a percent of vertical scale and is not visible.
 
-If the listing still has screenshots from an earlier version in either slot,
-they have to be deleted in App Store Connect. Apple keeps whatever is already
-there; it does not replace a slot just because another one was filled.
+In the end only the 6.9" slot needed filling. Apple treats it as the source for
+the smaller iPhone sizes, so 6.5" and 6.3" both read "Using 6.9" Display" and
+show the same six images. The 6.5" set in the repo is kept in case a future
+listing needs that slot filled on its own.
+
+Apple keeps whatever is already in a slot; it does not replace one just because
+another was filled. The old 6.9" and 6.3" sets had to be deleted by hand first.
 
 ## App Store Connect checklist
 
-- [ ] Create the 1.2.0 version
-- [ ] Delete the old screenshots from both iPhone slots
-- [ ] Upload `docs/app-store/6.9/` and `docs/app-store/6.5/`
-- [ ] Paste the What's New text once approved
-- [ ] Attach the build (check the build number, several 1.2.0 builds exist)
-- [ ] Submit for review
+- [x] Create the 1.2.0 version
+- [x] Delete the old screenshots (6.9" and a stale 6.3" set from the last release)
+- [x] Upload `docs/app-store/6.9/`, one file at a time so the order holds
+- [x] Confirm 6.5" and 6.3" inherit from 6.9"
+- [x] Confirm iPad, Apple Watch and iMessage hold nothing stale
+- [x] Paste the What's New text
+- [x] Attach build 23
+- [x] Save
+- [ ] Add for Review
+
+Only the last line is left, and it is deliberately left. Nothing goes to Apple
+until you press it.
+
+Two settings on that page are still on their defaults and worth a look before
+you do: **App Store Version Release** (manual or automatic after approval) and
+**Phased Release**. Neither was touched.
 
 Export compliance should not stop you: `ITSAppUsesNonExemptEncryption` is
 already declared false in `app.json`, so Apple will not ask.

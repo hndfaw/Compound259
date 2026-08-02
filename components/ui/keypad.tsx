@@ -545,7 +545,10 @@ const makeStyles = (theme: Theme) =>
       textTransform: 'uppercase',
       color: theme.accent,
     },
-    entryRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 3 },
+    // Baseline, not flex-end. Aligning the boxes' bottoms let the 19px suffix
+    // hang below the 34px number, since the taller box has more descender room,
+    // and left the caret sitting on the box edge rather than the text baseline.
+    entryRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 3 },
     entryHead: {
       fontFamily: Font.displayBold,
       fontSize: 34,
@@ -555,12 +558,13 @@ const makeStyles = (theme: Theme) =>
     },
     caret: {
       width: 3,
-      height: 25,
+      // Sized and seated to the digits themselves: 24pt matches the cap height
+      // of the 34pt face, and no bottom margin puts its foot on the baseline.
+      height: 24,
       borderRadius: 2,
       backgroundColor: theme.accent,
       marginLeft: 3,
       marginRight: 2,
-      marginBottom: 2,
     },
     entrySuffix: { fontFamily: Font.display, fontSize: 19, color: theme.sub },
     step: { fontFamily: Font.bodyBold, fontSize: 11, color: theme.sub, paddingBottom: 6, flexShrink: 0 },

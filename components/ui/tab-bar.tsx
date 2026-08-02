@@ -4,7 +4,15 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Reanimated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Reanimated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  Easing as ReaEasing,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Font, Theme } from '@/constants/tokens';
@@ -23,32 +31,15 @@ const SPRINGY = Easing.bezier(0.34, 1.24, 0.42, 1);
 const ACTION_SIZE = 55;
 const ACTION_GAP = 9;
 
-/**
- * Reanimated drives the capsule's resize as a declarative layout transition on
- * the UI thread, rather than us animating a width prop frame by frame from JS.
- */
-const EXPAND = LinearTransition.duration(420);
-
-/** Wider than any phone, so the capsule's blur never has to resize. */
-const BLUR_OVERSCAN = 1200;
-
 /** Blur + tint + shine stack shared by the capsule and the save button. */
-function Glass({ theme, radius, wideBlur = false }: { theme: Theme; radius: number; wideBlur?: boolean }) {
+function Glass({ theme, radius }: { theme: Theme; radius: number }) {
   return (
     <>
       <BlurView
         intensity={40}
         tint={theme.blurTint}
         experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
-        style={
-          wideBlur
-            ? // Anchored left and oversized: only the capsule's right edge
-              // moves, so the blur is re-clipped rather than re-rendered.
-              // Resizing a UIVisualEffectView every frame is what made the bar
-              // stutter when this collapse was animated by hand.
-              { position: 'absolute', top: 0, bottom: 0, left: 0, width: BLUR_OVERSCAN }
-            : [StyleSheet.absoluteFill, { borderRadius: radius }]
-        }
+        style={[StyleSheet.absoluteFill, { borderRadius: radius }]}
       />
       <View style={[StyleSheet.absoluteFill, { borderRadius: radius, backgroundColor: theme.glassTint }]} />
       <View
@@ -90,6 +81,22 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
     return () => anim.stop();
   }, [activeIndex, slide]);
 
+  // Bubble pop. A loose spring overshoots past full size and settles back on
+  // the way in; on the way out it shrinks away quickly with a little squash.
+  const pop = useSharedValue(onCalc ? 1 : 0);
+  useEffect(() => {
+    pop.value = onCalc
+      ? withSpring(1, { damping: 9, stiffness: 190, mass: 0.7, overshootClamping: false })
+      : withTiming(0, { duration: 190, easing: ReaEasing.in(ReaEasing.back(2)) });
+  }, [onCalc, pop]);
+
+  const popStyle = useAnimatedStyle(() => ({
+    // Fade in over the first sliver of the pop so it never flashes at full
+    // opacity while still tiny.
+    opacity: interpolate(pop.value, [0, 0.35, 1], [0, 1, 1], Extrapolation.CLAMP),
+    transform: [{ scale: Math.max(0, pop.value) }],
+  }));
+
   return (
     <View
       style={{
@@ -101,11 +108,10 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
         alignItems: 'center',
       }}
     >
-      <Reanimated.View
-        layout={EXPAND}
+      <View
         style={{ flex: 1, minWidth: 0, padding: 4, borderRadius: 999, overflow: 'hidden', boxShadow: theme.barShadow }}
       >
-        <Glass theme={theme} radius={999} wideBlur />
+        <Glass theme={theme} radius={999} />
         {/* Positioned above the glass stack, matching the spec's `z-index: 1`. */}
         <View style={{ flexDirection: 'row', flex: 1, position: 'relative', zIndex: 1 }}>
           {/*
@@ -189,24 +195,26 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
             );
           })}
         </View>
-      </Reanimated.View>
+      </View>
 
-      {/* Only on the calculator, where there is something to save. Mounting and
-          unmounting lets the capsule's layout transition do the expanding. */}
-      {onCalc ? (
+      {/*
+       * The slot is always here, so the capsule beside it never changes width
+       * and the three tabs never move. Only what sits inside the slot pops in
+       * and out, which is a transform and costs the layout nothing.
+       */}
+      <View style={{ width: ACTION_SIZE, marginLeft: ACTION_GAP, height: ACTION_SIZE, flexShrink: 0 }}>
         <Reanimated.View
-          entering={FadeIn.duration(240)}
-          exiting={FadeOut.duration(160)}
-          layout={EXPAND}
-          style={{
-            width: ACTION_SIZE,
-            marginLeft: ACTION_GAP,
-            height: ACTION_SIZE,
-            flexShrink: 0,
-            borderRadius: 999,
-            overflow: 'hidden',
-            boxShadow: theme.barShadow,
-          }}
+          pointerEvents={onCalc ? 'auto' : 'none'}
+          style={[
+            popStyle,
+            {
+              width: ACTION_SIZE,
+              height: ACTION_SIZE,
+              borderRadius: 999,
+              overflow: 'hidden',
+              boxShadow: theme.barShadow,
+            },
+          ]}
         >
           <TouchableOpacity
             onPress={() => {
@@ -216,6 +224,8 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Save this scenario"
+            accessibilityElementsHidden={!onCalc}
+            importantForAccessibility={onCalc ? 'auto' : 'no-hide-descendants'}
             style={{ width: ACTION_SIZE, height: ACTION_SIZE, alignItems: 'center', justifyContent: 'center' }}
           >
             <Glass theme={theme} radius={999} />
@@ -224,7 +234,7 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
             </View>
           </TouchableOpacity>
         </Reanimated.View>
-      ) : null}
+      </View>
     </View>
   );
 }

@@ -74,6 +74,10 @@ export type Theme = {
   cInterest: string;
   track: string;
 
+  // Chart ruler ticks — `--tick-min`, `--tick-maj`
+  tickMinor: string;
+  tickMajor: string;
+
   // Muted controls — `--muted-bg`, `--muted-bd`, `--muted-col`
   mutedBg: string;
   mutedBorder: string;
@@ -166,6 +170,9 @@ export const darkTheme: Theme = {
   cInterest: '#7CF6B0',
   track: 'rgba(255,255,255,0.08)',
 
+  tickMinor: 'rgba(255,255,255,0.14)',
+  tickMajor: 'rgba(255,255,255,0.28)',
+
   mutedBg: 'rgba(255,255,255,0.075)',
   mutedBorder: 'rgba(255,255,255,0.16)',
   mutedCol: '#AEB5D0',
@@ -246,6 +253,9 @@ export const lightTheme: Theme = {
   cContrib: '#9B51E0',
   cInterest: '#1E9E57',
   track: '#E5E5EA',
+
+  tickMinor: '#DCDCE1',
+  tickMajor: '#B8B8BE',
 
   mutedBg: '#F2F2F7',
   mutedBorder: '#E5E5EA',

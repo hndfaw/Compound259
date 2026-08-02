@@ -282,7 +282,7 @@ export default function CalculatorScreen() {
           <GradientText text={money(display)} colors={theme.balanceGrad} style={s.balance} numberOfLines={1} />
 
           <View style={s.chartWrap}>
-            <GrowthChart points={chartPoints} height={84} />
+            <GrowthChart points={chartPoints} years={values.years} height={84} />
           </View>
 
           <Collapsible expanded={!focused} rise={-12}>

@@ -75,6 +75,62 @@ export const chartSeries = (inputs: FinanceInputs, years: number, samples?: numb
   return points;
 };
 
+/**
+ * Ruler ticks along the chart's baseline, in the same 320x150 viewBox.
+ *
+ * Spacing adapts to the horizon so the axis always reads at a sensible grain:
+ * months under a quarter marker for a short run, years under a five-year
+ * marker for a long one. Pairs are [major, minor] in months.
+ */
+const TICK_STEPS: readonly (readonly [number, number])[] = [
+  [3, 1], // quarters, ticked monthly
+  [12, 3], // years, ticked quarterly
+  [24, 6], // 2 years, ticked half-yearly
+  [60, 12], // 5 years, ticked yearly
+  [120, 24], // decades, ticked every 2 years
+  [240, 60], // 20 years, ticked every 5 years
+  [600, 120], // 50 years, ticked every 10 years
+];
+
+/** Never draw more major marks than this across the axis. */
+const MAX_MAJOR_TICKS = 6;
+
+const X_START = 8;
+const X_SPAN = 304;
+
+/**
+ * X positions of the ruler marks, rather than a finished path, so the chart can
+ * tween them when the horizon changes instead of swapping one path for another.
+ */
+export const chartTicks = (years: number): { minor: number[]; major: number[] } => {
+  const months = Number.isFinite(years) ? years * 12 : 0;
+  // Below a couple of quarters there is nothing worth ruling.
+  if (!(months > 6)) return { minor: [], major: [] };
+
+  // Past the table, synthesise a step instead of falling back to its largest
+  // pair: a fixed pair against an unbounded horizon would loop for as many
+  // ticks as the horizon allows. Rounding to a multiple of five keeps the
+  // major step an exact multiple of the minor one, so the remainder test below
+  // stays exact.
+  const synthetic = Math.max(5, Math.ceil(months / MAX_MAJOR_TICKS / 5) * 5);
+  const [major, minor] = TICK_STEPS.find(([step]) => months / step <= MAX_MAJOR_TICKS) ?? [
+    synthetic,
+    synthetic / 5,
+  ];
+
+  const minorXs: number[] = [];
+  const majorXs: number[] = [];
+  // `month` stays an integer, so deciding whether a tick is major is an exact
+  // remainder rather than a float comparison against an epsilon.
+  for (let month = 0; month <= months; month += minor) {
+    const x = +(X_START + (month / months) * X_SPAN).toFixed(1);
+    if (x > X_START + X_SPAN + 0.5) break;
+    if (month % major === 0) majorXs.push(x);
+    else minorXs.push(x);
+  }
+  return { minor: minorXs, major: majorXs };
+};
+
 /** Catmull-Rom -> cubic Bézier smoothing, returns an SVG path `d`. */
 export const smoothPath = (p: [number, number][]): string => {
   if (!p.length) return '';

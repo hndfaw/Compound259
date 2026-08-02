@@ -54,6 +54,14 @@ export const breakdown = (inputs: FinanceInputs, years: number): Breakdown => {
   return { balance, contributionsTotal, interest, growthPct, principalRatio, contribRatio, interestRatio };
 };
 
+// --- chart geometry, all in the 320x150 viewBox -----------------------------
+const X_START = 8;
+const X_SPAN = 304;
+/** Foot of the viewBox: where the area closes and a zero-length series rests. */
+const BASELINE_Y = 150;
+/** Vertical room the curve is normalised into, leaving headroom at the top. */
+const PLOT_HEIGHT = 136;
+
 /**
  * Chart sample points in a 320x150 viewBox (y inverted for SVG).
  *
@@ -62,14 +70,26 @@ export const breakdown = (inputs: FinanceInputs, years: number): Breakdown => {
  * off keeps the year-aligned sampling.
  */
 export const chartSeries = (inputs: FinanceInputs, years: number, samples?: number): [number, number][] => {
-  const count = samples ?? Math.min(28, Math.max(2, years + 1));
-  const max = Math.max(balanceAt(inputs, years), 1);
+  const count = Math.max(2, samples ?? Math.min(28, Math.max(2, years + 1)));
+  const span = count - 1;
   const points: [number, number][] = [];
+
+  // A zero-length horizon has nothing to plot. Heights are normalised against
+  // the closing balance, so every sample would equal it and the line would sit
+  // flat across the top claiming full growth. Rest it on the baseline instead.
+  if (!(years > 0)) {
+    for (let i = 0; i < count; i++) {
+      points.push([+(X_START + (i / span) * X_SPAN).toFixed(1), BASELINE_Y]);
+    }
+    return points;
+  }
+
+  const max = Math.max(balanceAt(inputs, years), 1);
   for (let i = 0; i < count; i++) {
-    const yy = (i / (count - 1)) * years;
+    const yy = (i / span) * years;
     const val = balanceAt(inputs, yy);
-    const x = 8 + (i / (count - 1)) * 304;
-    const y = 150 - (val / max) * 136;
+    const x = X_START + (i / span) * X_SPAN;
+    const y = BASELINE_Y - (val / max) * PLOT_HEIGHT;
     points.push([+x.toFixed(1), +y.toFixed(1)]);
   }
   return points;
@@ -94,9 +114,6 @@ const TICK_STEPS: readonly (readonly [number, number])[] = [
 
 /** Never draw more major marks than this across the axis. */
 const MAX_MAJOR_TICKS = 6;
-
-const X_START = 8;
-const X_SPAN = 304;
 
 /**
  * X positions of the ruler marks, rather than a finished path, so the chart can

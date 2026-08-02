@@ -368,7 +368,7 @@ export default function CalculatorScreen() {
 
       {/* Frequency sheet */}
       <Sheet visible={freqOpen} onClose={() => setFreqOpen(false)}>
-        <Text style={s.sheetTitle}>Compounding frequency</Text>
+        <Text style={s.freqSheetTitle}>Compounding frequency</Text>
         <View style={{ marginTop: 16 }}>
           {FREQ_OPTIONS.map((f) => {
             const active = f === freq;
@@ -618,6 +618,8 @@ const makeStyles = (theme: Theme) =>
     freqChipText: { fontFamily: Font.bodyBold, fontSize: 10, color: theme.accent },
 
     sheetTitle: { fontFamily: Font.bodyBold, fontSize: 18, color: theme.text, textAlign: 'center' },
+    // The picker's heading is a step down from the save/edit sheets.
+    freqSheetTitle: { fontFamily: Font.bodyBold, fontSize: 17, color: theme.text, textAlign: 'center' },
     sheetSubtitle: {
       fontFamily: Font.body,
       fontSize: 13.5,

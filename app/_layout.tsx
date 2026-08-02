@@ -48,7 +48,7 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" />
       </Stack>
       <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
-      <Toast config={toastConfig} topOffset={60} />
+      <Toast config={toastConfig} topOffset={64} />
     </NavThemeProvider>
   );
 }

@@ -27,7 +27,7 @@ export function Sheet({
         <View style={styles.overlay}>
           <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: theme.overlay }]} onPress={onClose} />
           <View style={[styles.sheet, { backgroundColor: theme.sheet, borderColor: theme.sheetBorder }]}>
-            <View style={[styles.handle, { backgroundColor: theme.mutedBorder }]} />
+            <View style={[styles.handle, { backgroundColor: theme.grabber }]} />
             {children}
           </View>
         </View>
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   },
   dialog: {
     width: '100%',
-    maxWidth: 340,
+    maxWidth: 320,
     borderRadius: 22,
     borderWidth: 1,
   },

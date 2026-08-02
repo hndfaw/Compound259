@@ -36,31 +36,6 @@ export function Sheet({
   );
 }
 
-/** Centered dialog for confirmations / share cards. */
-export function Dialog({
-  visible,
-  onClose,
-  children,
-  padding = 24,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-  padding?: number;
-}) {
-  const { theme } = useTheme();
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.dialogOverlay}>
-        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: theme.overlay }]} onPress={onClose} />
-        <View style={[styles.dialog, { backgroundColor: theme.sheet, borderColor: theme.sheetBorder, padding }]}>
-          {children}
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -80,17 +55,5 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
-  },
-  dialogOverlay: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 26,
-  },
-  dialog: {
-    width: '100%',
-    maxWidth: 320,
-    borderRadius: 22,
-    borderWidth: 1,
   },
 });

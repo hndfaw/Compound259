@@ -84,17 +84,22 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   // Bubble pop. A loose spring overshoots past full size and settles back on
   // the way in; on the way out it shrinks away quickly with a little squash.
   const pop = useSharedValue(onCalc ? 1 : 0);
+  const fade = useSharedValue(onCalc ? 1 : 0);
   useEffect(() => {
-    pop.value = onCalc
-      ? withSpring(1, { damping: 9, stiffness: 190, mass: 0.7, overshootClamping: false })
-      : withTiming(0, { duration: 190, easing: ReaEasing.in(ReaEasing.back(2)) });
-  }, [onCalc, pop]);
+    // The spec's curve: a springy scale from .3 with the fade running shorter,
+    // so it reads as arriving rather than dissolving in.
+    pop.value = withSpring(onCalc ? 1 : 0, { damping: 11, stiffness: 200, mass: 0.6 });
+    fade.value = withTiming(onCalc ? 1 : 0, { duration: 240, easing: ReaEasing.out(ReaEasing.ease) });
+  }, [onCalc, pop, fade]);
 
   const popStyle = useAnimatedStyle(() => ({
-    // Fade in over the first sliver of the pop so it never flashes at full
-    // opacity while still tiny.
-    opacity: interpolate(pop.value, [0, 0.35, 1], [0, 1, 1], Extrapolation.CLAMP),
-    transform: [{ scale: Math.max(0, pop.value) }],
+    opacity: fade.value,
+    transform: [{ scale: interpolate(pop.value, [0, 1], [0.3, 1], Extrapolation.CLAMP) }],
+  }));
+
+  // The bookmark settles up into place as the button arrives.
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(pop.value, [0, 1], [4, 0], Extrapolation.CLAMP) }],
   }));
 
   return (
@@ -229,9 +234,9 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
             style={{ width: ACTION_SIZE, height: ACTION_SIZE, alignItems: 'center', justifyContent: 'center' }}
           >
             <Glass theme={theme} radius={999} />
-            <View style={{ position: 'relative', zIndex: 1 }}>
+            <Reanimated.View style={[iconStyle, { position: 'relative', zIndex: 1 }]}>
               <Icon name="bookmark" size={21} color={theme.accent} filled />
-            </View>
+            </Reanimated.View>
           </TouchableOpacity>
         </Reanimated.View>
       </View>

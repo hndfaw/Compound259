@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Modal, Platform, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, Platform, Pressable, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import ViewShot from 'react-native-view-shot';
 
@@ -11,7 +11,7 @@ import { GradientButton } from '@/components/ui/gradient-button';
 import { Icon, IconName } from '@/components/ui/icon';
 import { FadeUp } from '@/components/ui/motion';
 import { Screen } from '@/components/ui/screen';
-import { Dialog, Sheet } from '@/components/ui/sheet';
+import { Sheet } from '@/components/ui/sheet';
 import { Font, Theme } from '@/constants/tokens';
 import { SavedCalculation, useCalculations } from '@/hooks/use-calculations';
 import { useTheme } from '@/hooks/use-theme';
@@ -208,8 +208,8 @@ export default function SavedScreen() {
 
       {/* Edit sheet */}
       <Sheet visible={!!editing} onClose={() => setEditing(null)}>
+        <Text style={s.sheetEyebrow}>Rename</Text>
         <Text style={s.sheetTitle}>Edit calculation</Text>
-        <Text style={s.sheetSubtitle}>Update the name of your saved calculation</Text>
         <TextInput
           value={editTitle}
           onChangeText={setEditTitle}
@@ -223,55 +223,59 @@ export default function SavedScreen() {
           style={[s.textInput, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder, color: theme.text }]}
         />
         <View style={[s.sheetActions, { marginTop: 18 }]}>
-          <TouchableOpacity
+          <Pressable
             onPress={() => setEditing(null)}
-            activeOpacity={0.85}
             accessibilityRole="button"
-            style={[s.cancelBtn, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder }]}
+            style={({ pressed }) => [s.mutedBtn, { flex: 1 }, pressed && { transform: [{ scale: 0.97 }] }]}
           >
-            <Text style={[s.cancelText, { color: theme.mutedCol }]}>Cancel</Text>
-          </TouchableOpacity>
+            <Text style={s.mutedBtnText}>Cancel</Text>
+          </Pressable>
           <GradientButton
             onPress={saveEdit}
             disabled={busy || !editTitle.trim()}
             style={{ flex: 1.5, opacity: editTitle.trim() ? 1 : 0.5 }}
-            radius={12}
-            contentStyle={{ paddingVertical: 14 }}
+            radius={14}
+            contentStyle={{ paddingVertical: 15 }}
+            shadow
           >
             <Text style={[s.confirmText, { color: theme.btnFg }]}>Save changes</Text>
           </GradientButton>
         </View>
       </Sheet>
 
-      {/* Delete dialog */}
-      <Dialog visible={!!deleting} onClose={() => setDeleting(null)}>
-        <View style={{ alignItems: 'center' }}>
-          <View style={[s.deleteIcon, { backgroundColor: theme.dangerBg }]}>
-            <Icon name="trash" size={28} color={theme.danger} strokeWidth={2} />
+      {/* Delete sheet */}
+      <Sheet visible={!!deleting} onClose={() => setDeleting(null)}>
+        <Text style={[s.sheetEyebrow, { color: theme.danger }]}>Delete</Text>
+        <Text style={s.sheetTitle}>Remove this calculation?</Text>
+        <View style={s.deleteRow}>
+          <View style={s.deleteIcon}>
+            <Icon name="trash" size={17} color={theme.danger} strokeWidth={2} />
           </View>
-          <Text style={s.deleteTitle}>Delete calculation?</Text>
-          <Text style={s.deleteMsg}>Delete “{deleting?.title}”? This action cannot be undone.</Text>
-          <View style={[s.sheetActions, { width: '100%' }]}>
-            <TouchableOpacity
-              onPress={() => setDeleting(null)}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              style={[s.cancelBtn, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder, paddingVertical: 13 }]}
-            >
-              <Text style={[s.cancelText, { color: theme.mutedCol }]}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={confirmDelete}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              disabled={busy}
-              style={[s.deleteConfirm, { backgroundColor: theme.danger }]}
-            >
-              <Text style={s.deleteConfirmText}>Delete</Text>
-            </TouchableOpacity>
+          <View style={{ flexShrink: 1, minWidth: 0 }}>
+            <Text style={s.deleteName} numberOfLines={1}>
+              {deleting?.title}
+            </Text>
+            <Text style={s.deleteNote}>This cannot be undone</Text>
           </View>
         </View>
-      </Dialog>
+        <View style={[s.sheetActions, { marginTop: 14 }]}>
+          <Pressable
+            onPress={() => setDeleting(null)}
+            accessibilityRole="button"
+            style={({ pressed }) => [s.mutedBtn, { flex: 1.5 }, pressed && { transform: [{ scale: 0.97 }] }]}
+          >
+            <Text style={s.mutedBtnText}>Keep it</Text>
+          </Pressable>
+          <Pressable
+            onPress={confirmDelete}
+            disabled={busy}
+            accessibilityRole="button"
+            style={({ pressed }) => [s.deleteBtn, pressed && { transform: [{ scale: 0.97 }] }]}
+          >
+            <Text style={s.deleteBtnText}>Delete</Text>
+          </Pressable>
+        </View>
+      </Sheet>
 
       {/* Share card */}
       <ShareOverlay calc={sharing} viewShotRef={viewShotRef} onShare={captureAndShare} onClose={() => setSharing(null)} />
@@ -507,32 +511,82 @@ const makeStyles = (theme: Theme) =>
       marginTop: 7,
     },
     shareAppText: { fontFamily: Font.bodySemi, fontSize: 13, color: theme.sub },
-    sheetTitle: { fontFamily: Font.bodyBold, fontSize: 18, color: theme.text, textAlign: 'center' },
-    sheetSubtitle: {
-      fontFamily: Font.body,
-      fontSize: 13.5,
-      color: theme.sub,
+    // Small uppercase kicker above each sheet's heading.
+    sheetEyebrow: {
+      fontFamily: Font.bodyBold,
+      fontSize: 11,
+      letterSpacing: 1.4,
+      textTransform: 'uppercase',
+      color: theme.ter,
       textAlign: 'center',
-      marginTop: 6,
-      marginBottom: 18,
+    },
+    sheetTitle: {
+      fontFamily: Font.bodyBold,
+      fontSize: 18,
+      color: theme.text,
+      textAlign: 'center',
+      marginTop: 5,
+      marginBottom: 16,
     },
     textInput: {
       borderWidth: 1,
-      borderRadius: 12,
-      paddingVertical: 14,
+      borderRadius: 14,
+      paddingVertical: 15,
       paddingHorizontal: 16,
-      fontFamily: Font.body,
+      fontFamily: Font.bodySemi,
       fontSize: 16,
     },
-    sheetActions: { flexDirection: 'row', gap: 12 },
-    cancelBtn: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
-    cancelText: { fontFamily: Font.bodySemi, fontSize: 15 },
+    sheetActions: { flexDirection: 'row', gap: 10 },
+    mutedBtn: {
+      borderRadius: 14,
+      borderWidth: 1,
+      paddingVertical: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.mutedBg,
+      borderColor: theme.mutedBorder,
+    },
+    mutedBtnText: { fontFamily: Font.bodyBold, fontSize: 15, color: theme.mutedCol },
     confirmText: { fontFamily: Font.bodyBold, fontSize: 15 },
-    deleteIcon: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-    deleteTitle: { fontFamily: Font.bodyBold, fontSize: 19, color: theme.text, marginBottom: 9 },
-    deleteMsg: { fontFamily: Font.body, fontSize: 14, color: theme.sub, textAlign: 'center', lineHeight: 21, marginBottom: 22 },
-    deleteConfirm: { flex: 1, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
-    deleteConfirmText: { fontFamily: Font.bodyBold, fontSize: 15, color: '#fff' },
+    // The record being removed, shown so it is obvious which one is going.
+    deleteRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: theme.mutedBg,
+      borderWidth: 1,
+      borderColor: theme.mutedBorder,
+      borderRadius: 14,
+      paddingVertical: 13,
+      paddingHorizontal: 15,
+      marginBottom: 8,
+    },
+    deleteIcon: {
+      width: 34,
+      height: 34,
+      borderRadius: 11,
+      flexShrink: 0,
+      backgroundColor: theme.dangerBg,
+      borderWidth: 1,
+      borderColor: theme.dangerBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    deleteName: { fontFamily: Font.bodyBold, fontSize: 15, color: theme.text },
+    deleteNote: { fontFamily: Font.bodySemi, fontSize: 12, color: theme.sub, marginTop: 1 },
+    // Tinted rather than a solid fill, so the destructive action reads as
+    // secondary to keeping the record.
+    deleteBtn: {
+      flex: 1,
+      borderRadius: 14,
+      paddingVertical: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.dangerBg,
+      borderWidth: 1,
+      borderColor: theme.dangerBorder,
+    },
+    deleteBtnText: { fontFamily: Font.bodyBold, fontSize: 15, color: theme.danger },
   });
 
 const makeShareStyles = (theme: Theme) =>

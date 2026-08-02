@@ -397,8 +397,8 @@ export default function CalculatorScreen() {
 
       {/* Save sheet */}
       <Sheet visible={saveOpen} onClose={() => setSaveOpen(false)}>
-        <Text style={s.sheetTitle}>Save calculation</Text>
-        <Text style={s.sheetSubtitle}>Give your scenario a memorable name</Text>
+        <Text style={s.sheetEyebrow}>Save scenario</Text>
+        <Text style={s.sheetTitle}>Name this calculation</Text>
         <TextInput
           value={saveTitle}
           onChangeText={setSaveTitle}
@@ -411,25 +411,25 @@ export default function CalculatorScreen() {
           onSubmitEditing={handleSave}
           style={[s.textInput, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder, color: theme.text }]}
         />
-        <View style={[s.previewBox, { backgroundColor: theme.accentSoft }]}>
-          <Text style={s.previewLabel}>Final balance</Text>
-          <Text style={[s.previewValue, { color: theme.accent }]}>{money(b.balance)}</Text>
+        <View style={s.previewRow}>
+          <Text style={s.previewLabel}>Future value</Text>
+          <Text style={s.previewValue}>{money(b.balance)}</Text>
         </View>
         <View style={s.sheetActions}>
-          <TouchableOpacity
+          <Pressable
             onPress={() => setSaveOpen(false)}
-            activeOpacity={0.85}
             accessibilityRole="button"
-            style={[s.cancelBtn, { backgroundColor: theme.mutedBg, borderColor: theme.mutedBorder }]}
+            style={({ pressed }) => [s.cancelBtn, pressed && { transform: [{ scale: 0.97 }] }]}
           >
-            <Text style={[s.cancelText, { color: theme.mutedCol }]}>Cancel</Text>
-          </TouchableOpacity>
+            <Text style={s.cancelText}>Cancel</Text>
+          </Pressable>
           <GradientButton
             onPress={handleSave}
             disabled={isSaving}
             style={{ flex: 1.5 }}
-            radius={12}
-            contentStyle={{ paddingVertical: 14 }}
+            radius={14}
+            contentStyle={{ paddingVertical: 15 }}
+            shadow
           >
             <Text style={[s.saveConfirmText, { color: theme.btnFg }]}>{isSaving ? 'Saving…' : 'Save'}</Text>
           </GradientButton>
@@ -617,17 +617,25 @@ const makeStyles = (theme: Theme) =>
     },
     freqChipText: { fontFamily: Font.bodyBold, fontSize: 10, color: theme.accent },
 
-    sheetTitle: { fontFamily: Font.bodyBold, fontSize: 18, color: theme.text, textAlign: 'center' },
+    // Small uppercase kicker above each sheet's heading.
+    sheetEyebrow: {
+      fontFamily: Font.bodyBold,
+      fontSize: 11,
+      letterSpacing: 1.4,
+      textTransform: 'uppercase',
+      color: theme.ter,
+      textAlign: 'center',
+    },
+    sheetTitle: {
+      fontFamily: Font.bodyBold,
+      fontSize: 18,
+      color: theme.text,
+      textAlign: 'center',
+      marginTop: 5,
+      marginBottom: 16,
+    },
     // The picker's heading is a step down from the save/edit sheets.
     freqSheetTitle: { fontFamily: Font.bodyBold, fontSize: 17, color: theme.text, textAlign: 'center' },
-    sheetSubtitle: {
-      fontFamily: Font.body,
-      fontSize: 13.5,
-      color: theme.sub,
-      textAlign: 'center',
-      marginTop: 6,
-      marginBottom: 18,
-    },
     freqOption: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -641,17 +649,44 @@ const makeStyles = (theme: Theme) =>
     freqOptionText: { fontFamily: Font.bodySemi, fontSize: 15 },
     textInput: {
       borderWidth: 1,
-      borderRadius: 12,
-      paddingVertical: 14,
+      borderRadius: 14,
+      paddingVertical: 15,
       paddingHorizontal: 16,
-      fontFamily: Font.body,
+      fontFamily: Font.bodySemi,
       fontSize: 16,
     },
-    previewBox: { borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center', marginVertical: 16 },
-    previewLabel: { fontFamily: Font.body, fontSize: 12, color: theme.sub },
-    previewValue: { fontFamily: Font.displayBold, fontSize: 22, marginTop: 2 },
-    sheetActions: { flexDirection: 'row', gap: 12 },
-    cancelBtn: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
-    cancelText: { fontFamily: Font.bodySemi, fontSize: 15 },
+    previewRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.accentSoft,
+      borderWidth: 1,
+      borderColor: theme.accentBorder,
+      borderRadius: 14,
+      paddingVertical: 13,
+      paddingHorizontal: 16,
+      marginTop: 12,
+      marginBottom: 18,
+    },
+    previewLabel: {
+      fontFamily: Font.bodyBold,
+      fontSize: 10,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      color: theme.sub,
+    },
+    previewValue: { fontFamily: Font.displayBold, fontSize: 21, color: theme.accent },
+    sheetActions: { flexDirection: 'row', gap: 10 },
+    cancelBtn: {
+      flex: 1,
+      borderRadius: 14,
+      borderWidth: 1,
+      paddingVertical: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.mutedBg,
+      borderColor: theme.mutedBorder,
+    },
+    cancelText: { fontFamily: Font.bodyBold, fontSize: 15, color: theme.mutedCol },
     saveConfirmText: { fontFamily: Font.bodyBold, fontSize: 15 },
   });
